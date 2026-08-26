@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Boulangerie Manager</title>
+
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            background: #f5f5f5;
+            color: #222;
+        }
+
+        header {
+            background: #222;
+            color: white;
+            padding: 25px 20px;
+        }
+
+        header h1 {
+            margin: 0;
+            font-size: 26px;
+        }
+
+        header p {
+            margin: 8px 0 0;
+            opacity: 0.8;
+        }
+
+        main {
+            padding: 20px;
+            max-width: 700px;
+            margin: auto;
+        }
+
+        .card {
+            background: white;
+            border-radius: 15px;
+            padding: 20px;
+            margin-bottom: 15px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+        }
+
+        .card h2 {
+            margin-top: 0;
+        }
+
+        .task {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 15px 0;
+            border-bottom: 1px solid #eee;
+        }
+
+        .task:last-child {
+            border-bottom: none;
+        }
+
+        button {
+            border: none;
+            background: #222;
+            color: white;
+            padding: 10px 15px;
+            border-radius: 10px;
+            font-size: 14px;
+        }
+
+        .alert {
+            color: #b00020;
+            font-weight: bold;
+        }
+    </style>
+</head>
+
+<body>
+
+<header>
+    <h1>🥖 Boulangerie Manager</h1>
+    <p>Bonjour Hugo 👋</p>
+</header>
+
+<main>
+
+    <div class="card">
+        <h2>🧹 Mes tâches du jour</h2>
+
+        <div class="task">
+            <span>Nettoyer le pétrin</span>
+            <button>Terminer</button>
+        </div>
+
+        <div class="task">
+            <span>Nettoyer le plan de travail</span>
+            <button>Terminer</button>
+        </div>
+
+        <div class="task">
+            <span>Nettoyer la chambre froide</span>
+            <button>Terminer</button>
+        </div>
+    </div>
+
+    <div class="card">
+        <h2>📦 DLC à surveiller</h2>
+
+        <div class="task">
+            <span>Crème liquide</span>
+            <span class="alert">Expire aujourd'hui</span>
+        </div>
+
+        <div class="task">
+            <span>Beurre</span>
+            <span>Expire demain</span>
+        </div>
+    </div>
+
+</main>
+
+</body>
+</html>
