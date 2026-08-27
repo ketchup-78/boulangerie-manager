@@ -51,6 +51,7 @@
             display: flex;
             justify-content: space-between;
             align-items: center;
+            gap: 10px;
             padding: 15px 0;
             border-bottom: 1px solid #eee;
         }
@@ -66,6 +67,15 @@
             padding: 10px 15px;
             border-radius: 10px;
             font-size: 14px;
+        }
+
+        button:active {
+            transform: scale(0.96);
+        }
+
+        .done {
+            color: #16803c;
+            font-weight: bold;
         }
 
         .alert {
@@ -89,17 +99,17 @@
 
         <div class="task">
             <span>Nettoyer le pétrin</span>
-            <button>Terminer</button>
+            <button onclick="terminerTache(this)">Terminer</button>
         </div>
 
         <div class="task">
             <span>Nettoyer le plan de travail</span>
-            <button>Terminer</button>
+            <button onclick="terminerTache(this)">Terminer</button>
         </div>
 
         <div class="task">
             <span>Nettoyer la chambre froide</span>
-            <button>Terminer</button>
+            <button onclick="terminerTache(this)">Terminer</button>
         </div>
     </div>
 
@@ -118,6 +128,34 @@
     </div>
 
 </main>
+
+<script>
+
+function terminerTache(bouton) {
+
+    const ligne = bouton.parentElement;
+
+    const nomTache = ligne.querySelector("span").textContent;
+
+    const heure = new Date().toLocaleTimeString("fr-FR", {
+        hour: "2-digit",
+        minute: "2-digit"
+    });
+
+    bouton.remove();
+
+    const confirmation = document.createElement("span");
+
+    confirmation.className = "done";
+
+    confirmation.textContent = "✅ Terminé à " + heure;
+
+    ligne.appendChild(confirmation);
+
+    console.log(nomTache + " terminée à " + heure);
+}
+
+</script>
 
 </body>
 </html>
