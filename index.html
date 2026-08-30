@@ -1,161 +1,88 @@
 <!DOCTYPE html>
 <html lang="fr">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Boulangerie Manager</title>
-
-    <style>
-        body {
-            font-family: Arial, sans-serif;
-            margin: 0;
-            background: #f5f5f5;
-            color: #222;
-        }
-
-        header {
-            background: #222;
-            color: white;
-            padding: 25px 20px;
-        }
-
-        header h1 {
-            margin: 0;
-            font-size: 26px;
-        }
-
-        header p {
-            margin: 8px 0 0;
-            opacity: 0.8;
-        }
-
-        main {
-            padding: 20px;
-            max-width: 700px;
-            margin: auto;
-        }
-
-        .card {
-            background: white;
-            border-radius: 15px;
-            padding: 20px;
-            margin-bottom: 15px;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
-        }
-
-        .card h2 {
-            margin-top: 0;
-        }
-
-        .task {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            gap: 10px;
-            padding: 15px 0;
-            border-bottom: 1px solid #eee;
-        }
-
-        .task:last-child {
-            border-bottom: none;
-        }
-
-        button {
-            border: none;
-            background: #222;
-            color: white;
-            padding: 10px 15px;
-            border-radius: 10px;
-            font-size: 14px;
-        }
-
-        button:active {
-            transform: scale(0.96);
-        }
-
-        .done {
-            color: #16803c;
-            font-weight: bold;
-        }
-
-        .alert {
-            color: #b00020;
-            font-weight: bold;
-        }
-    </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Boulangerie Manager</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:wght@600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#FAF7F2; --surface:#FFFFFF; --ink:#241A14;
+    --accent:#C68A2E; --accent-dark:#9C6B1E;
+    --danger:#B00020; --success:#16803C; --radius:18px;
+  }
+  *{box-sizing:border-box;}
+  body{
+    font-family:'Inter',Arial,sans-serif; margin:0; background:var(--bg); color:var(--ink);
+    min-height:100vh; display:flex; flex-direction:column;
+  }
+  header{background:var(--ink); color:#fff; padding:32px 24px 28px;}
+  header h1{margin:0; font-family:'Fraunces',serif; font-size:30px; font-weight:700;}
+  header p{margin:8px 0 0; opacity:.75;}
+  main{flex:1; padding:24px; max-width:640px; margin:0 auto; width:100%; display:flex; flex-direction:column; gap:16px;}
+  a.choice{
+    background:var(--surface); border-radius:var(--radius); padding:24px;
+    box-shadow:0 2px 10px rgba(0,0,0,.06); text-decoration:none; color:var(--ink);
+    display:flex; align-items:center; gap:18px; transition:transform .1s ease;
+  }
+  a.choice:active{transform:scale(0.98);}
+  a.choice .emoji{font-size:34px;}
+  a.choice .label{font-family:'Fraunces',serif; font-size:20px; font-weight:600;}
+  a.choice .sub{font-size:14px; opacity:.65; margin-top:2px;}
+  footer{text-align:center; padding:16px; font-size:12px; opacity:.4;}
+</style>
 </head>
-
 <body>
 
 <header>
-    <h1>🥖 Boulangerie Manager</h1>
-    <p>Bonjour Hugo 👋</p>
+  <h1>🥖 Boulangerie Manager</h1>
+  <p>Choisis ton poste pour ce terminal</p>
 </header>
 
 <main>
+  <a class="choice" href="boutique.html">
+    <span class="emoji">🛎️</span>
+    <span>
+      <div class="label">Boutique</div>
+      <div class="sub">Prendre les commandes du jour</div>
+    </span>
+  </a>
 
-    <div class="card">
-        <h2>🧹 Mes tâches du jour</h2>
+  <a class="choice" href="labo.html?atelier=boulangerie">
+    <span class="emoji">🍞</span>
+    <span>
+      <div class="label">Labo — Boulangerie</div>
+      <div class="sub">Tâches, commandes à préparer, DLC</div>
+    </span>
+  </a>
 
-        <div class="task">
-            <span>Nettoyer le pétrin</span>
-            <button onclick="terminerTache(this)">Terminer</button>
-        </div>
+  <a class="choice" href="recettes.html?atelier=boulangerie">
+    <span class="emoji">📖</span>
+    <span>
+      <div class="label">Recettes — Boulangerie</div>
+      <div class="sub">Fiches recettes de l'atelier boulangerie</div>
+    </span>
+  </a>
 
-        <div class="task">
-            <span>Nettoyer le plan de travail</span>
-            <button onclick="terminerTache(this)">Terminer</button>
-        </div>
+  <a class="choice" href="labo.html?atelier=patisserie">
+    <span class="emoji">🧁</span>
+    <span>
+      <div class="label">Labo — Pâtisserie</div>
+      <div class="sub">Tâches, commandes à préparer, DLC</div>
+    </span>
+  </a>
 
-        <div class="task">
-            <span>Nettoyer la chambre froide</span>
-            <button onclick="terminerTache(this)">Terminer</button>
-        </div>
-    </div>
-
-    <div class="card">
-        <h2>📦 DLC à surveiller</h2>
-
-        <div class="task">
-            <span>Crème liquide</span>
-            <span class="alert">Expire aujourd'hui</span>
-        </div>
-
-        <div class="task">
-            <span>Beurre</span>
-            <span>Expire demain</span>
-        </div>
-    </div>
-
+  <a class="choice" href="recettes.html?atelier=patisserie">
+    <span class="emoji">📖</span>
+    <span>
+      <div class="label">Recettes — Pâtisserie</div>
+      <div class="sub">Fiches recettes de l'atelier pâtisserie</div>
+    </span>
+  </a>
 </main>
 
-<script>
-
-function terminerTache(bouton) {
-
-    const ligne = bouton.parentElement;
-
-    const nomTache = ligne.querySelector("span").textContent;
-
-    const heure = new Date().toLocaleTimeString("fr-FR", {
-        hour: "2-digit",
-        minute: "2-digit"
-    });
-
-    bouton.remove();
-
-    const confirmation = document.createElement("span");
-
-    confirmation.className = "done";
-
-    confirmation.textContent = "✅ Terminé à " + heure;
-
-    ligne.appendChild(confirmation);
-
-    console.log(nomTache + " terminée à " + heure);
-}
-
-</script>
+<footer>Astuce : mets chaque tablette en favori directement sur sa page (boutique.html ou labo.html?atelier=...)</footer>
 
 </body>
 </html>

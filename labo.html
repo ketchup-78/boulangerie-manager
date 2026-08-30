@@ -1,0 +1,235 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Labo — Boulangerie Manager</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:wght@600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+  :root{
+    --bg:#FAF7F2; --surface:#FFFFFF; --ink:#241A14;
+    --accent:#C68A2E; --accent-dark:#9C6B1E;
+    --danger:#B00020; --success:#16803C; --radius:18px;
+  }
+  *{box-sizing:border-box;}
+  body{font-family:'Inter',Arial,sans-serif; margin:0; background:var(--bg); color:var(--ink);}
+  header{background:var(--ink); color:#fff; padding:22px 20px; display:flex; align-items:center; justify-content:space-between;}
+  header h1{margin:0; font-family:'Fraunces',serif; font-size:22px;}
+  header a{color:#fff; opacity:.7; text-decoration:none; font-size:13px;}
+  main{padding:20px; max-width:700px; margin:auto;}
+  .card{background:var(--surface); border-radius:var(--radius); padding:20px; margin-bottom:16px; box-shadow:0 2px 8px rgba(0,0,0,.06);}
+  .card h2{margin-top:0; font-family:'Fraunces',serif; font-size:19px;}
+  label{display:block; font-size:13px; opacity:.7; margin:10px 0 4px;}
+  input, select{width:100%; padding:12px; border-radius:10px; border:1px solid #ddd; font-size:15px; font-family:inherit;}
+  button.primary{
+    margin-top:16px; width:100%; border:none; background:var(--accent); color:#241A14;
+    padding:14px; border-radius:12px; font-size:16px; font-weight:600;
+  }
+  button.primary:active{transform:scale(0.98);}
+  button.small{border:none; background:var(--ink); color:#fff; padding:10px 15px; border-radius:10px; font-size:14px;}
+  .task, .commande, .dlc-item{
+    display:flex; justify-content:space-between; align-items:center; gap:10px;
+    padding:14px 0; border-bottom:1px solid #eee;
+  }
+  .task:last-child, .commande:last-child, .dlc-item:last-child{border-bottom:none;}
+  .task small, .commande small{opacity:.6; display:block; margin-top:2px;}
+  .done{color:var(--success); font-weight:600; font-size:14px;}
+  .alert{color:var(--danger); font-weight:600; font-size:14px;}
+  .soon{color:var(--accent-dark); font-weight:600; font-size:14px;}
+  .empty{opacity:.5; font-size:14px; padding:10px 0;}
+</style>
+</head>
+<body>
+
+<header>
+  <h1 id="titre-page">🍞 Labo</h1>
+  <div style="text-align:right;">
+    <span id="bandeau-profil" style="display:block;font-size:12px;opacity:.8;"></span>
+    <a href="index.html">← Accueil</a> · <a href="#" onclick="effacerProfil()">Changer</a>
+  </div>
+</header>
+
+<main>
+  <div class="card" id="card-ajout-tache">
+    <h2>Ajouter une tâche</h2>
+    <label>Description</label>
+    <input id="description-tache" placeholder="ex: Lancer le pétrin">
+    <label>Assigner à (optionnel)</label>
+    <select id="assigne-tache">
+      <option value="">Tout le monde</option>
+    </select>
+    <button class="primary" onclick="ajouterTache()">Ajouter la tâche</button>
+  </div>
+
+  <div class="card">
+    <h2>🧹 Tâches</h2>
+    <div id="liste-taches"><p class="empty">Chargement...</p></div>
+  </div>
+
+  <div class="card">
+    <h2>📋 Commandes à préparer</h2>
+    <div id="liste-commandes"><p class="empty">Chargement...</p></div>
+  </div>
+
+  <div class="card">
+    <h2>📦 DLC à surveiller</h2>
+    <div id="liste-dlc"><p class="empty">Chargement...</p></div>
+  </div>
+</main>
+
+<script src="supabase-config.js"></script>
+<script src="profil.js"></script>
+<script>
+
+const params = new URLSearchParams(window.location.search);
+const atelier = params.get('atelier') === 'patisserie' ? 'patisserie' : 'boulangerie';
+
+document.getElementById('titre-page').textContent =
+  atelier === 'patisserie' ? '🧁 Labo — Pâtisserie' : '🍞 Labo — Boulangerie';
+
+// ---------- TÂCHES ----------
+async function chargerTaches() {
+  const conteneur = document.getElementById('liste-taches');
+  const { data, error } = await supabaseClient
+    .from('taches')
+    .select('*')
+    .eq('atelier', atelier)
+    .eq('fait', false)
+    .order('created_at', { ascending: true });
+
+  if (error) { conteneur.innerHTML = `<p class="empty">Erreur : ${error.message}</p>`; return; }
+  if (!data || data.length === 0) { conteneur.innerHTML = `<p class="empty">Aucune tâche en attente.</p>`; return; }
+
+  conteneur.innerHTML = data.map(t => `
+    <div class="task">
+      <span>${t.description}${t.assigne_a ? '<br><small>Assignée à ' + t.assigne_a + '</small>' : ''}</span>
+      <button class="small" onclick="terminerTache('${t.id}')">Terminer</button>
+    </div>
+  `).join('');
+}
+
+async function ajouterTache() {
+  const description = document.getElementById('description-tache').value.trim();
+  const assigne_a = document.getElementById('assigne-tache').value || null;
+  if (!description) { alert('Merci de décrire la tâche.'); return; }
+
+  const { error } = await supabaseClient.from('taches').insert([{ description, atelier, assigne_a }]);
+  if (error) { alert('Erreur : ' + error.message); return; }
+
+  document.getElementById('description-tache').value = '';
+  document.getElementById('assigne-tache').value = '';
+}
+
+async function terminerTache(id) {
+  const { error } = await supabaseClient.from('taches')
+    .update({ fait: true, termine_a: new Date().toISOString() })
+    .eq('id', id);
+  if (error) alert('Erreur : ' + error.message);
+}
+
+// ---------- COMMANDES À PRÉPARER ----------
+async function chargerCommandes() {
+  const conteneur = document.getElementById('liste-commandes');
+  const { data, error } = await supabaseClient
+    .from('commandes')
+    .select('*')
+    .in('statut', ['a_faire', 'en_cours'])
+    .order('heure_retrait', { ascending: true });
+
+  if (error) { conteneur.innerHTML = `<p class="empty">Erreur : ${error.message}</p>`; return; }
+  if (!data || data.length === 0) { conteneur.innerHTML = `<p class="empty">Aucune commande à préparer.</p>`; return; }
+
+  conteneur.innerHTML = data.map(c => `
+    <div class="commande">
+      <span>
+        <strong>${c.client}</strong> — ${c.produit} (x${c.quantite})
+        <small>${c.heure_retrait ? 'Retrait ' + c.heure_retrait.slice(0,5) : 'Heure non précisée'}${c.notes ? ' · ' + c.notes : ''}</small>
+      </span>
+      <button class="small" onclick="changerStatutCommande('${c.id}', '${c.statut === 'a_faire' ? 'en_cours' : 'pret'}')">
+        ${c.statut === 'a_faire' ? 'Démarrer' : 'Marquer prêt'}
+      </button>
+    </div>
+  `).join('');
+}
+
+async function changerStatutCommande(id, statut) {
+  const { error } = await supabaseClient.from('commandes').update({ statut }).eq('id', id);
+  if (error) alert('Erreur : ' + error.message);
+}
+
+// ---------- DLC ----------
+async function chargerDlc() {
+  const conteneur = document.getElementById('liste-dlc');
+  const { data, error } = await supabaseClient
+    .from('dlc')
+    .select('*')
+    .eq('ecoule', false)
+    .or(`atelier.eq.${atelier},atelier.is.null`)
+    .order('dlc', { ascending: true });
+
+  if (error) { conteneur.innerHTML = `<p class="empty">Erreur : ${error.message}</p>`; return; }
+  if (!data || data.length === 0) { conteneur.innerHTML = `<p class="empty">Rien à surveiller.</p>`; return; }
+
+  const aujourdhui = new Date(); aujourdhui.setHours(0,0,0,0);
+
+  conteneur.innerHTML = data.map(d => {
+    const dateDlc = new Date(d.dlc);
+    const joursRestants = Math.round((dateDlc - aujourdhui) / 86400000);
+    let etiquette, classe;
+    if (joursRestants <= 0) { etiquette = "Expire aujourd'hui"; classe = 'alert'; }
+    else if (joursRestants === 1) { etiquette = 'Expire demain'; classe = 'soon'; }
+    else { etiquette = `Expire dans ${joursRestants} jours`; classe = ''; }
+
+    return `
+      <div class="dlc-item">
+        <span>${d.produit}${d.quantite ? ' (' + d.quantite + ')' : ''}</span>
+        <span class="${classe}">${etiquette}</span>
+      </div>`;
+  }).join('');
+}
+
+// ---------- Liste des employés pour l'assignation de tâches ----------
+async function remplirListeEmployes() {
+  const { data } = await supabaseClient.from('employes').select('*').eq('service', atelier).order('nom');
+  const select = document.getElementById('assigne-tache');
+  if (data) {
+    data.forEach(e => {
+      const option = document.createElement('option');
+      option.value = e.nom;
+      option.textContent = e.nom;
+      select.appendChild(option);
+    });
+  }
+}
+
+function chargerTout() {
+  chargerTaches();
+  chargerCommandes();
+  chargerDlc();
+}
+
+initProfil((profil) => {
+  window.profilActuel = profil;
+
+  // Seul le chef peut créer et assigner des tâches
+  if (profil.role !== 'chef') {
+    document.getElementById('card-ajout-tache').style.display = 'none';
+  } else {
+    remplirListeEmployes();
+  }
+
+  chargerTout();
+
+  supabaseClient
+    .channel('labo-' + atelier)
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'taches' }, chargerTaches)
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'commandes' }, chargerCommandes)
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'dlc' }, chargerDlc)
+    .subscribe();
+}, atelier);
+
+</script>
+</body>
+</html>
