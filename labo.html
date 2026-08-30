@@ -210,7 +210,7 @@ async function chargerCommandes() {
         <small>${c.heure_retrait ? 'Retrait ' + c.heure_retrait.slice(0,5) : 'Heure non précisée'}${c.notes ? ' · ' + c.notes : ''} · ${libelleStatutCommande(c.statut)}</small>
       </span>
       ${estAujourdhui && c.statut === 'a_faire' ? `
-        <button class="small" onclick="changerStatutCommande('${c.id}', 'pret')">Marquer prêt</button>` : ''}
+        <button class="small" onclick="marquerPret('${c.id}', this)">Marquer prêt</button>` : ''}
     </div>
   `).join('');
 }
@@ -221,6 +221,13 @@ function libelleStatutCommande(s) {
 
 async function changerStatutCommande(id, statut) {
   const { error } = await supabaseClient.from('commandes').update({ statut }).eq('id', id);
+  if (error) alert('Erreur : ' + error.message);
+}
+
+async function marquerPret(id, bouton) {
+  // Confirmation immédiate à l'écran, avant même la réponse du serveur
+  bouton.outerHTML = '<span class="done">✅ Prêt</span>';
+  const { error } = await supabaseClient.from('commandes').update({ statut: 'pret' }).eq('id', id);
   if (error) alert('Erreur : ' + error.message);
 }
 
