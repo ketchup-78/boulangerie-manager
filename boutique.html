@@ -66,6 +66,12 @@
     <label>Produit</label>
     <input id="produit" placeholder="ex: Tarte aux fraises">
 
+    <label>Atelier concerné</label>
+    <select id="atelier-commande">
+      <option value="boulangerie">🍞 Boulangerie (pain, viennoiserie...)</option>
+      <option value="patisserie">🧁 Pâtisserie (gâteau, tarte...)</option>
+    </select>
+
     <div class="row">
       <div>
         <label>Date de retrait</label>
@@ -156,6 +162,7 @@ function libelleStatut(s) {
 async function ajouterCommande() {
   const client = document.getElementById('client').value.trim();
   const produit = document.getElementById('produit').value.trim();
+  const atelier = document.getElementById('atelier-commande').value;
   const quantite = parseInt(document.getElementById('quantite').value) || 1;
   const date_retrait = document.getElementById('date_retrait').value || new Date().toISOString().slice(0,10);
   const heure_retrait = document.getElementById('heure_retrait').value || null;
@@ -168,7 +175,7 @@ async function ajouterCommande() {
   }
 
   const { error } = await supabaseClient.from('commandes').insert([
-    { client, produit, quantite, date_retrait, heure_retrait, notes, prise_par }
+    { client, produit, atelier, quantite, date_retrait, heure_retrait, notes, prise_par }
   ]);
 
   if (error) {

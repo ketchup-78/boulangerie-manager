@@ -162,6 +162,7 @@ async function chargerVueSemaine() {
     .from('commandes')
     .select('date_retrait')
     .neq('statut', 'annule')
+    .or(`atelier.eq.${atelier},atelier.is.null`)
     .gte('date_retrait', jours[0])
     .lte('date_retrait', jours[6]);
 
@@ -199,6 +200,7 @@ async function chargerCommandes() {
     .select('*')
     .eq('date_retrait', dateChoisie)
     .neq('statut', 'annule')
+    .or(`atelier.eq.${atelier},atelier.is.null`)
     .order('heure_retrait', { ascending: true });
 
   if (!afficherTout) {
