@@ -67,13 +67,21 @@
 
     <div class="row">
       <div>
-        <label>Quantité</label>
-        <input id="quantite" type="number" min="1" value="1">
+        <label>Date de retrait</label>
+        <input id="date_retrait" type="date">
       </div>
       <div>
         <label>Heure de retrait</label>
         <input id="heure_retrait" type="time">
       </div>
+    </div>
+
+    <div class="row">
+      <div>
+        <label>Quantité</label>
+        <input id="quantite" type="number" min="1" value="1">
+      </div>
+      <div></div>
     </div>
 
     <label>Notes (allergies, précisions...)</label>
@@ -83,7 +91,7 @@
   </div>
 
   <div class="card">
-    <h2>Commandes du jour</h2>
+    <h2>Commandes à venir</h2>
     <div id="liste-commandes">
       <p class="empty">Chargement...</p>
     </div>
@@ -94,15 +102,15 @@
 <script src="profil.js"></script>
 <script>
 
-// Récupère et affiche les commandes créées aujourd'hui
+// Récupère et affiche les commandes à venir (à partir d'aujourd'hui)
 async function chargerCommandes() {
-  const debutJour = new Date();
-  debutJour.setHours(0,0,0,0);
+  const aujourdhui = new Date().toISOString().slice(0, 10);
 
   const { data, error } = await supabaseClient
     .from('commandes')
     .select('*')
-    .gte('created_at', debutJour.toISOString())
+    .gte('date_retrait', aujourdhui)
+    .order('date_retrait', { ascending: true })
     .order('heure_retrait', { ascending: true });
 
   const conteneur = document.getElementById('liste-commandes');
@@ -122,7 +130,7 @@ async function chargerCommandes() {
       <div class="commande-top">
         <div>
           <strong>${c.client}</strong> — ${c.produit} (x${c.quantite})<br>
-          <small>${c.heure_retrait ? 'Retrait ' + c.heure_retrait.slice(0,5) : 'Heure non précisée'}${c.notes ? ' · ' + c.notes : ''}${c.prise_par ? ' · prise par ' + c.prise_par : ''}</small>
+          <small>${formaterDate(c.date_retrait)}${c.heure_retrait ? ' à ' + c.heure_retrait.slice(0,5) : ''}${c.notes ? ' · ' + c.notes : ''}${c.prise_par ? ' · prise par ' + c.prise_par : ''}</small>
         </div>
         <span class="statut ${c.statut}">${libelleStatut(c.statut)}</span>
       </div>
@@ -136,6 +144,11 @@ async function chargerCommandes() {
   `).join('');
 }
 
+function formaterDate(dateStr) {
+  const [an, mois, jour] = dateStr.split('-');
+  return `${jour}/${mois}`;
+}
+
 function libelleStatut(s) {
   return { a_faire: 'À faire', en_cours: 'En cours', pret: 'Prêt', recupere: 'Récupéré' }[s] || s;
 }
@@ -144,6 +157,7 @@ async function ajouterCommande() {
   const client = document.getElementById('client').value.trim();
   const produit = document.getElementById('produit').value.trim();
   const quantite = parseInt(document.getElementById('quantite').value) || 1;
+  const date_retrait = document.getElementById('date_retrait').value || new Date().toISOString().slice(0,10);
   const heure_retrait = document.getElementById('heure_retrait').value || null;
   const notes = document.getElementById('notes').value.trim() || null;
   const prise_par = window.profilActuel ? window.profilActuel.nom : null;
@@ -154,7 +168,7 @@ async function ajouterCommande() {
   }
 
   const { error } = await supabaseClient.from('commandes').insert([
-    { client, produit, quantite, heure_retrait, notes, prise_par }
+    { client, produit, quantite, date_retrait, heure_retrait, notes, prise_par }
   ]);
 
   if (error) {
@@ -167,6 +181,7 @@ async function ajouterCommande() {
   document.getElementById('quantite').value = 1;
   document.getElementById('heure_retrait').value = '';
   document.getElementById('notes').value = '';
+  document.getElementById('date_retrait').value = new Date().toISOString().slice(0,10);
 }
 
 async function changerStatut(id, statut) {
@@ -177,6 +192,7 @@ async function changerStatut(id, statut) {
 // On attend de savoir qui utilise la tablette avant de charger la page
 initProfil((profil) => {
   window.profilActuel = profil;
+  document.getElementById('date_retrait').value = new Date().toISOString().slice(0,10);
   chargerCommandes();
 
   supabaseClient
