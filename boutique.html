@@ -79,7 +79,7 @@
       </div>
       <div>
         <label>Heure de retrait</label>
-        <input id="heure_retrait" type="time">
+        <select id="heure_retrait"></select>
       </div>
     </div>
 
@@ -109,7 +109,26 @@
 <script src="profil.js"></script>
 <script>
 
-// Récupère et affiche les commandes à venir (à partir d'aujourd'hui)
+// Génère les créneaux de 15 min pendant les heures d'ouverture uniquement :
+// 6h-13h30 et 15h30-19h30 (la coupure du midi est automatiquement exclue)
+function remplirHeuresRetrait() {
+  const creneaux = [];
+  function ajouterPlage(debutH, debutM, finH, finM) {
+    let h = debutH, m = debutM;
+    while (h < finH || (h === finH && m <= finM)) {
+      creneaux.push(String(h).padStart(2, '0') + ':' + String(m).padStart(2, '0'));
+      m += 15;
+      if (m >= 60) { m -= 60; h++; }
+    }
+  }
+  ajouterPlage(6, 0, 13, 30);
+  ajouterPlage(15, 30, 19, 30);
+
+  const select = document.getElementById('heure_retrait');
+  select.innerHTML = '<option value="">Non précisée</option>' +
+    creneaux.map(c => `<option value="${c}">${c}</option>`).join('');
+}
+remplirHeuresRetrait();
 async function chargerCommandes() {
   const aujourdhui = dateLocale();
 
