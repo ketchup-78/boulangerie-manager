@@ -79,6 +79,10 @@
     <h2>📋 Commandes à préparer</h2>
     <label>Jour consulté</label>
     <input id="date-commandes" type="date" onchange="chargerCommandes()">
+    <label style="display:flex;align-items:center;gap:8px;margin-top:12px;font-size:14px;opacity:.8;">
+      <input type="checkbox" id="toggle-tout" onchange="chargerCommandes()" style="width:auto;">
+      Voir aussi les commandes déjà prêtes
+    </label>
     <div id="liste-commandes" style="margin-top:10px;"><p class="empty">Chargement...</p></div>
   </div>
 
@@ -190,16 +194,26 @@ async function chargerCommandes() {
   const conteneur = document.getElementById('liste-commandes');
   const aujourdhui = new Date().toISOString().slice(0,10);
   const dateChoisie = document.getElementById('date-commandes').value || aujourdhui;
+  const afficherTout = document.getElementById('toggle-tout').checked;
 
-  const { data, error } = await supabaseClient
+  let requete = supabaseClient
     .from('commandes')
     .select('*')
     .eq('date_retrait', dateChoisie)
     .neq('statut', 'annule')
     .order('heure_retrait', { ascending: true });
 
+  if (!afficherTout) {
+    requete = requete.eq('statut', 'a_faire');
+  }
+
+  const { data, error } = await requete;
+
   if (error) { conteneur.innerHTML = `<p class="empty">Erreur : ${error.message}</p>`; return; }
-  if (!data || data.length === 0) { conteneur.innerHTML = `<p class="empty">Aucune commande pour ce jour.</p>`; return; }
+  if (!data || data.length === 0) {
+    conteneur.innerHTML = `<p class="empty">${afficherTout ? 'Aucune commande pour ce jour.' : 'Tout est prêt ! ✅'}</p>`;
+    return;
+  }
 
   const estAujourdhui = dateChoisie === aujourdhui;
 
