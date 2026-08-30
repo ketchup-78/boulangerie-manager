@@ -79,7 +79,7 @@
       </div>
       <div>
         <label>Heure de retrait</label>
-        <select id="heure_retrait"></select>
+        <input id="heure_retrait" type="time">
       </div>
     </div>
 
@@ -109,26 +109,16 @@
 <script src="profil.js"></script>
 <script>
 
-// Génère les créneaux de 15 min pendant les heures d'ouverture uniquement :
-// 6h-13h30 et 15h30-19h30 (la coupure du midi est automatiquement exclue)
-function remplirHeuresRetrait() {
-  const creneaux = [];
-  function ajouterPlage(debutH, debutM, finH, finM) {
-    let h = debutH, m = debutM;
-    while (h < finH || (h === finH && m <= finM)) {
-      creneaux.push(String(h).padStart(2, '0') + ':' + String(m).padStart(2, '0'));
-      m += 15;
-      if (m >= 60) { m -= 60; h++; }
-    }
-  }
-  ajouterPlage(6, 0, 13, 30);
-  ajouterPlage(15, 30, 19, 30);
-
-  const select = document.getElementById('heure_retrait');
-  select.innerHTML = '<option value="">Non précisée</option>' +
-    creneaux.map(c => `<option value="${c}">${c}</option>`).join('');
+// Vérifie que l'heure choisie tombe bien dans les horaires d'ouverture
+// (6h-13h30 et 15h30-19h30, coupure du midi exclue)
+function dansHorairesOuverture(heure) {
+  if (!heure) return true; // heure non précisée = ok
+  const [h, m] = heure.split(':').map(Number);
+  const minutes = h * 60 + m;
+  const matin = minutes >= 6 * 60 && minutes <= 13 * 60 + 30;
+  const apresMidi = minutes >= 15 * 60 + 30 && minutes <= 19 * 60 + 30;
+  return matin || apresMidi;
 }
-remplirHeuresRetrait();
 async function chargerCommandes() {
   const aujourdhui = dateLocale();
 
@@ -190,6 +180,11 @@ async function ajouterCommande() {
 
   if (!client || !produit) {
     alert('Merci de remplir au moins le client et le produit.');
+    return;
+  }
+
+  if (!dansHorairesOuverture(heure_retrait)) {
+    alert("Cette heure tombe pendant la fermeture (13h30-15h30). Merci de choisir un créneau entre 6h et 13h30, ou entre 15h30 et 19h30.");
     return;
   }
 
