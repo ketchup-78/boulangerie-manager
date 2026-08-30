@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Recettes — Boulangerie Manager</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:wght@600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+  :root{
+    --bg:#FAF7F2; --surface:#FFFFFF; --ink:#241A14;
+    --accent:#C68A2E; --accent-dark:#9C6B1E; --radius:18px;
+  }
+  *{box-sizing:border-box;}
+  body{font-family:'Inter',Arial,sans-serif; margin:0; background:var(--bg); color:var(--ink);}
+  header{background:var(--ink); color:#fff; padding:22px 20px; display:flex; align-items:center; justify-content:space-between;}
+  header h1{margin:0; font-family:'Fraunces',serif; font-size:22px;}
+  header a{color:#fff; opacity:.7; text-decoration:none; font-size:13px;}
+  main{padding:20px; max-width:700px; margin:auto;}
+  .card{background:var(--surface); border-radius:var(--radius); padding:20px; margin-bottom:16px; box-shadow:0 2px 8px rgba(0,0,0,.06);}
+  .card h2{margin-top:0; font-family:'Fraunces',serif; font-size:19px;}
+  label{display:block; font-size:13px; opacity:.7; margin:10px 0 4px;}
+  input, textarea{width:100%; padding:12px; border-radius:10px; border:1px solid #ddd; font-size:15px; font-family:inherit;}
+  textarea{min-height:80px; resize:vertical;}
+  button.primary{
+    margin-top:16px; width:100%; border:none; background:var(--accent); color:#241A14;
+    padding:14px; border-radius:12px; font-size:16px; font-weight:600;
+  }
+  button.primary:active{transform:scale(0.98);}
+  details{border-bottom:1px solid #eee; padding:14px 0;}
+  details:last-child{border-bottom:none;}
+  summary{font-family:'Fraunces',serif; font-size:16px; font-weight:600; cursor:pointer;}
+  .contenu-recette{margin-top:12px; font-size:14px; line-height:1.6;}
+  .contenu-recette h4{margin:10px 0 4px; font-size:13px; opacity:.6; text-transform:uppercase; letter-spacing:.03em;}
+  .empty{opacity:.5; font-size:14px; padding:10px 0;}
+</style>
+</head>
+<body>
+
+<header>
+  <h1 id="titre-page">📖 Recettes</h1>
+  <div style="text-align:right;">
+    <span id="bandeau-profil" style="display:block;font-size:12px;opacity:.8;"></span>
+    <a href="index.html">← Accueil</a> · <a href="#" onclick="effacerProfil()">Changer</a>
+  </div>
+</header>
+
+<main>
+  <div class="card" id="card-ajout-recette">
+    <h2>Ajouter une recette</h2>
+    <label>Nom de la recette</label>
+    <input id="nom" placeholder="ex: Pain de campagne">
+
+    <label>Ingrédients (un par ligne)</label>
+    <textarea id="ingredients" placeholder="1kg farine T65&#10;700ml eau&#10;20g sel&#10;5g levure"></textarea>
+
+    <label>Étapes</label>
+    <textarea id="etapes" placeholder="1. Mélanger...&#10;2. Pétrir...&#10;3. Laisser pousser..."></textarea>
+
+    <button class="primary" onclick="ajouterRecette()">Ajouter la recette</button>
+  </div>
+
+  <div class="card">
+    <h2>Toutes les recettes</h2>
+    <div id="liste-recettes">
+      <p class="empty">Chargement...</p>
+    </div>
+  </div>
+</main>
+
+<script src="supabase-config.js"></script>
+<script src="profil.js"></script>
+<script>
+
+// Récupère l'atelier depuis l'adresse de la page, ex: recettes.html?atelier=boulangerie
+const params = new URLSearchParams(window.location.search);
+const atelier = params.get('atelier') === 'patisserie' ? 'patisserie' : 'boulangerie';
+
+document.getElementById('titre-page').textContent =
+  atelier === 'patisserie' ? '🧁 Recettes — Pâtisserie' : '🍞 Recettes — Boulangerie';
+
+async function chargerRecettes() {
+  const { data, error } = await supabaseClient
+    .from('recettes')
+    .select('*')
+    .eq('atelier', atelier)
+    .order('nom', { ascending: true });
+
+  const conteneur = document.getElementById('liste-recettes');
+
+  if (error) {
+    conteneur.innerHTML = `<p class="empty">Erreur de chargement : ${error.message}</p>`;
+    return;
+  }
+
+  if (!data || data.length === 0) {
+    conteneur.innerHTML = `<p class="empty">Aucune recette pour l'instant.</p>`;
+    return;
+  }
+
+  conteneur.innerHTML = data.map(r => `
+    <details>
+      <summary>${r.nom}</summary>
+      <div class="contenu-recette">
+        <h4>Ingrédients</h4>
+        <ul>${(r.ingredients || []).map(i => `<li>${i}</li>`).join('')}</ul>
+        <h4>Étapes</h4>
+        <p>${(r.etapes || '').replace(/\n/g, '<br>')}</p>
+      </div>
+    </details>
+  `).join('');
+}
+
+async function ajouterRecette() {
+  if (!window.profilActuel || window.profilActuel.role !== 'chef') {
+    alert("Seul le chef peut ajouter une recette.");
+    return;
+  }
+
+  const nom = document.getElementById('nom').value.trim();
+  const ingredientsTexte = document.getElementById('ingredients').value;
+  const etapes = document.getElementById('etapes').value.trim();
+
+  if (!nom) {
+    alert('Merci de donner un nom à la recette.');
+    return;
+  }
+
+  const ingredients = ingredientsTexte
+    .split('\n')
+    .map(l => l.trim())
+    .filter(l => l.length > 0);
+
+  const { error } = await supabaseClient.from('recettes').insert([
+    { nom, ingredients, etapes, atelier }
+  ]);
+
+  if (error) {
+    alert('Erreur : ' + error.message);
+    return;
+  }
+
+  document.getElementById('nom').value = '';
+  document.getElementById('ingredients').value = '';
+  document.getElementById('etapes').value = '';
+  chargerRecettes();
+}
+
+// On attend de savoir qui utilise la tablette avant de charger la page
+initProfil((profil) => {
+  window.profilActuel = profil;
+
+  if (profil.role !== 'chef') {
+    document.getElementById('card-ajout-recette').style.display = 'none';
+  }
+
+  chargerRecettes();
+
+  supabaseClient
+    .channel('recettes-' + atelier)
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'recettes' }, chargerRecettes)
+    .subscribe();
+}, atelier);
+
+</script>
+</body>
+</html>

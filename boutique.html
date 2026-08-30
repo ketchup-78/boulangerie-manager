@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Boutique — Boulangerie Manager</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:wght@600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+  :root{
+    --bg:#FAF7F2; --surface:#FFFFFF; --ink:#241A14;
+    --accent:#C68A2E; --accent-dark:#9C6B1E;
+    --danger:#B00020; --success:#16803C; --radius:18px;
+  }
+  *{box-sizing:border-box;}
+  body{font-family:'Inter',Arial,sans-serif; margin:0; background:var(--bg); color:var(--ink);}
+  header{background:var(--ink); color:#fff; padding:22px 20px; display:flex; align-items:center; justify-content:space-between;}
+  header h1{margin:0; font-family:'Fraunces',serif; font-size:22px;}
+  header a{color:#fff; opacity:.7; text-decoration:none; font-size:13px;}
+  main{padding:20px; max-width:700px; margin:auto;}
+  .card{background:var(--surface); border-radius:var(--radius); padding:20px; margin-bottom:16px; box-shadow:0 2px 8px rgba(0,0,0,.06);}
+  .card h2{margin-top:0; font-family:'Fraunces',serif; font-size:19px;}
+  label{display:block; font-size:13px; opacity:.7; margin:10px 0 4px;}
+  input, select{width:100%; padding:12px; border-radius:10px; border:1px solid #ddd; font-size:15px; font-family:inherit;}
+  .row{display:flex; gap:10px;}
+  .row > div{flex:1;}
+  button.primary{
+    margin-top:16px; width:100%; border:none; background:var(--accent); color:#241A14;
+    padding:14px; border-radius:12px; font-size:16px; font-weight:600;
+  }
+  button.primary:active{transform:scale(0.98);}
+  .commande{padding:14px 0; border-bottom:1px solid #eee;}
+  .commande:last-child{border-bottom:none;}
+  .commande-top{display:flex; justify-content:space-between; align-items:center;}
+  .commande-top strong{font-size:15px;}
+  .commande small{opacity:.6;}
+  .statut{
+    font-size:12px; font-weight:600; padding:4px 10px; border-radius:20px; white-space:nowrap;
+  }
+  .statut.a_faire{background:#f1e4c8; color:#7a5a12;}
+  .statut.en_cours{background:#dcebf7; color:#1a5a8a;}
+  .statut.pret{background:#dcf3e3; color:var(--success);}
+  .statut.recupere{background:#eee; color:#888;}
+  select.statut-select{margin-top:8px; font-size:13px; padding:6px;}
+  .empty{opacity:.5; font-size:14px; padding:10px 0;}
+</style>
+</head>
+<body>
+
+<header>
+  <h1>🛎️ Boutique</h1>
+  <div style="text-align:right;">
+    <span id="bandeau-profil" style="display:block;font-size:12px;opacity:.8;"></span>
+    <a href="index.html">← Accueil</a> · <a href="#" onclick="effacerProfil()">Changer</a>
+  </div>
+</header>
+
+<main>
+  <div class="card">
+    <h2>Nouvelle commande</h2>
+    <label>Nom du client</label>
+    <input id="client" placeholder="ex: Mme Dupont">
+
+    <label>Produit</label>
+    <input id="produit" placeholder="ex: Tarte aux fraises">
+
+    <div class="row">
+      <div>
+        <label>Quantité</label>
+        <input id="quantite" type="number" min="1" value="1">
+      </div>
+      <div>
+        <label>Heure de retrait</label>
+        <input id="heure_retrait" type="time">
+      </div>
+    </div>
+
+    <label>Notes (allergies, précisions...)</label>
+    <input id="notes" placeholder="optionnel">
+
+    <button class="primary" onclick="ajouterCommande()">Ajouter la commande</button>
+  </div>
+
+  <div class="card">
+    <h2>Commandes du jour</h2>
+    <div id="liste-commandes">
+      <p class="empty">Chargement...</p>
+    </div>
+  </div>
+</main>
+
+<script src="supabase-config.js"></script>
+<script src="profil.js"></script>
+<script>
+
+// Récupère et affiche les commandes créées aujourd'hui
+async function chargerCommandes() {
+  const debutJour = new Date();
+  debutJour.setHours(0,0,0,0);
+
+  const { data, error } = await supabaseClient
+    .from('commandes')
+    .select('*')
+    .gte('created_at', debutJour.toISOString())
+    .order('heure_retrait', { ascending: true });
+
+  const conteneur = document.getElementById('liste-commandes');
+
+  if (error) {
+    conteneur.innerHTML = `<p class="empty">Erreur de chargement : ${error.message}</p>`;
+    return;
+  }
+
+  if (!data || data.length === 0) {
+    conteneur.innerHTML = `<p class="empty">Aucune commande pour l'instant.</p>`;
+    return;
+  }
+
+  conteneur.innerHTML = data.map(c => `
+    <div class="commande">
+      <div class="commande-top">
+        <div>
+          <strong>${c.client}</strong> — ${c.produit} (x${c.quantite})<br>
+          <small>${c.heure_retrait ? 'Retrait ' + c.heure_retrait.slice(0,5) : 'Heure non précisée'}${c.notes ? ' · ' + c.notes : ''}${c.prise_par ? ' · prise par ' + c.prise_par : ''}</small>
+        </div>
+        <span class="statut ${c.statut}">${libelleStatut(c.statut)}</span>
+      </div>
+      <select class="statut-select" onchange="changerStatut('${c.id}', this.value)">
+        <option value="a_faire" ${c.statut==='a_faire'?'selected':''}>À faire</option>
+        <option value="en_cours" ${c.statut==='en_cours'?'selected':''}>En cours</option>
+        <option value="pret" ${c.statut==='pret'?'selected':''}>Prêt</option>
+        <option value="recupere" ${c.statut==='recupere'?'selected':''}>Récupéré</option>
+      </select>
+    </div>
+  `).join('');
+}
+
+function libelleStatut(s) {
+  return { a_faire: 'À faire', en_cours: 'En cours', pret: 'Prêt', recupere: 'Récupéré' }[s] || s;
+}
+
+async function ajouterCommande() {
+  const client = document.getElementById('client').value.trim();
+  const produit = document.getElementById('produit').value.trim();
+  const quantite = parseInt(document.getElementById('quantite').value) || 1;
+  const heure_retrait = document.getElementById('heure_retrait').value || null;
+  const notes = document.getElementById('notes').value.trim() || null;
+  const prise_par = window.profilActuel ? window.profilActuel.nom : null;
+
+  if (!client || !produit) {
+    alert('Merci de remplir au moins le client et le produit.');
+    return;
+  }
+
+  const { error } = await supabaseClient.from('commandes').insert([
+    { client, produit, quantite, heure_retrait, notes, prise_par }
+  ]);
+
+  if (error) {
+    alert('Erreur : ' + error.message);
+    return;
+  }
+
+  document.getElementById('client').value = '';
+  document.getElementById('produit').value = '';
+  document.getElementById('quantite').value = 1;
+  document.getElementById('heure_retrait').value = '';
+  document.getElementById('notes').value = '';
+}
+
+async function changerStatut(id, statut) {
+  const { error } = await supabaseClient.from('commandes').update({ statut }).eq('id', id);
+  if (error) alert('Erreur : ' + error.message);
+}
+
+// On attend de savoir qui utilise la tablette avant de charger la page
+initProfil((profil) => {
+  window.profilActuel = profil;
+  chargerCommandes();
+
+  supabaseClient
+    .channel('commandes-boutique')
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'commandes' }, chargerCommandes)
+    .subscribe();
+}, 'vente');
+
+</script>
+</body>
+</html>
