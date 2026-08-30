@@ -148,14 +148,13 @@ async function terminerTache(id) {
 async function chargerVueSemaine() {
   const conteneur = document.getElementById('vue-semaine');
   const aujourdhui = new Date();
-  const decalage = (aujourdhui.getDay() + 6) % 7; // 0 = lundi
-  const lundi = new Date(aujourdhui);
-  lundi.setDate(aujourdhui.getDate() - decalage);
 
   const jours = [];
+  const dates = [];
   for (let i = 0; i < 7; i++) {
-    const d = new Date(lundi);
-    d.setDate(lundi.getDate() + i);
+    const d = new Date(aujourdhui);
+    d.setDate(aujourdhui.getDate() + i);
+    dates.push(d);
     jours.push(d.toISOString().slice(0, 10));
   }
 
@@ -168,16 +167,15 @@ async function chargerVueSemaine() {
 
   if (error) { conteneur.innerHTML = `<p class="empty">Erreur : ${error.message}</p>`; return; }
 
-  const noms = ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim'];
   const compte = {};
   jours.forEach(j => compte[j] = 0);
   (data || []).forEach(c => { if (compte[c.date_retrait] !== undefined) compte[c.date_retrait]++; });
 
-  const todayStr = aujourdhui.toISOString().slice(0, 10);
+  const todayStr = jours[0];
 
   conteneur.innerHTML = jours.map((j, i) => `
     <div onclick="selectionnerJour('${j}')" style="cursor:pointer; text-align:center; padding:10px 6px; border-radius:10px; background:${j === todayStr ? '#f1e4c8' : '#f7f4ee'}; min-width:58px; flex-shrink:0;">
-      <div style="font-size:11px; opacity:.6;">${noms[i]}</div>
+      <div style="font-size:11px; opacity:.6; text-transform:capitalize;">${dates[i].toLocaleDateString('fr-FR', { weekday: 'short' })}</div>
       <div style="font-size:13px; font-weight:600;">${j.slice(8,10)}/${j.slice(5,7)}</div>
       <div style="font-size:16px; font-weight:700; color:var(--accent-dark); margin-top:4px;">${compte[j]}</div>
     </div>
