@@ -203,6 +203,7 @@ async function ajouterCommande() {
   document.getElementById('heure_retrait').value = '';
   document.getElementById('notes').value = '';
   document.getElementById('date_retrait').value = dateLocale();
+  chargerCommandes();
 }
 
 async function changerStatut(id, statut) {
