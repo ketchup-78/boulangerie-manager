@@ -47,7 +47,9 @@
   <h1 id="titre-page">🍞 Labo</h1>
   <div style="text-align:right;">
     <span id="bandeau-profil" style="display:block;font-size:12px;opacity:.8;"></span>
-    <a href="index.html">← Accueil</a> · <a href="#" onclick="effacerProfil()">Changer</a>
+    <a href="index.html">← Accueil</a> ·
+    <a href="#" id="lien-recettes">📖 Recettes</a> ·
+    <a href="#" onclick="effacerProfil()">Changer</a>
   </div>
 </header>
 
@@ -88,6 +90,8 @@ const atelier = params.get('atelier') === 'patisserie' ? 'patisserie' : 'boulang
 
 document.getElementById('titre-page').textContent =
   atelier === 'patisserie' ? '🧁 Labo — Pâtisserie' : '🍞 Labo — Boulangerie';
+
+document.getElementById('lien-recettes').href = 'recettes.html?atelier=' + atelier;
 
 // ---------- TÂCHES ----------
 async function chargerTaches() {
