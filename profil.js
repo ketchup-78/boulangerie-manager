@@ -54,21 +54,37 @@ async function initProfil(callback, filtreService) {
   }
 
   overlay.innerHTML = `
-    <div style="background:#fff;border-radius:18px;padding:28px;max-width:340px;width:100%;box-shadow:0 4px 20px rgba(0,0,0,.1);text-align:center;">
+    <div style="background:#fff;border-radius:18px;padding:28px 20px;max-width:440px;width:100%;box-shadow:0 4px 20px rgba(0,0,0,.1);text-align:center;">
       <h2 style="font-family:'Fraunces',serif;margin-top:0;">Qui es-tu ?</h2>
-      <select id="select-profil" style="width:100%;padding:12px;border-radius:10px;border:1px solid #ddd;font-size:15px;margin-bottom:14px;">
-        ${data.map(e => `<option value="${e.id}">${e.nom}</option>`).join('')}
-      </select>
-      <button id="btn-confirmer-profil" style="width:100%;border:none;background:#C68A2E;color:#241A14;padding:14px;border-radius:12px;font-size:16px;font-weight:600;">C'est moi</button>
+      <div style="display:flex;flex-wrap:wrap;gap:12px;justify-content:center;margin-top:14px;">
+        ${data.map(e => `
+          <button class="btn-profil" data-id="${e.id}" style="
+            display:flex;flex-direction:column;align-items:center;gap:10px;
+            width:118px;padding:20px 8px;border:none;border-radius:16px;
+            background:#FAF7F2;cursor:pointer;font-family:inherit;
+            transition:transform .1s ease;">
+            <span style="width:56px;height:56px;border-radius:50%;background:#C68A2E;color:#241A14;
+              display:flex;align-items:center;justify-content:center;font-size:24px;font-weight:700;
+              font-family:'Fraunces',serif;">
+              ${e.nom.charAt(0).toUpperCase()}
+            </span>
+            <span style="font-size:16px;font-weight:600;color:#241A14;">${e.nom}</span>
+          </button>
+        `).join('')}
+      </div>
     </div>`;
   document.body.appendChild(overlay);
 
-  document.getElementById('btn-confirmer-profil').onclick = () => {
-    const id = document.getElementById('select-profil').value;
-    const employe = data.find(e => e.id === id);
-    localStorage.setItem('bm_profil', JSON.stringify(employe));
-    overlay.remove();
-    afficherBandeauProfil(employe);
-    callback(employe);
-  };
+  overlay.querySelectorAll('.btn-profil').forEach(bouton => {
+    bouton.onmousedown = () => bouton.style.transform = 'scale(0.94)';
+    bouton.onmouseup = () => bouton.style.transform = 'scale(1)';
+    bouton.onclick = () => {
+      const id = bouton.dataset.id;
+      const employe = data.find(e => e.id === id);
+      localStorage.setItem('bm_profil', JSON.stringify(employe));
+      overlay.remove();
+      afficherBandeauProfil(employe);
+      callback(employe);
+    };
+  });
 }
