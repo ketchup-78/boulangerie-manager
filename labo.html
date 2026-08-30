@@ -155,7 +155,7 @@ async function chargerVueSemaine() {
     const d = new Date(aujourdhui);
     d.setDate(aujourdhui.getDate() + i);
     dates.push(d);
-    jours.push(d.toISOString().slice(0, 10));
+    jours.push(dateLocale(d));
   }
 
   const { data, error } = await supabaseClient
@@ -191,7 +191,7 @@ function selectionnerJour(date) {
 // ---------- COMMANDES À PRÉPARER ----------
 async function chargerCommandes() {
   const conteneur = document.getElementById('liste-commandes');
-  const aujourdhui = new Date().toISOString().slice(0,10);
+  const aujourdhui = dateLocale();
   const dateChoisie = document.getElementById('date-commandes').value || aujourdhui;
   const afficherTout = document.getElementById('toggle-tout').checked;
 
@@ -299,7 +299,7 @@ function chargerTout() {
 
 initProfil((profil) => {
   window.profilActuel = profil;
-  document.getElementById('date-commandes').value = new Date().toISOString().slice(0,10);
+  document.getElementById('date-commandes').value = dateLocale();
 
   // Seul le chef peut créer et assigner des tâches
   if (profil.role !== 'chef') {

@@ -111,7 +111,7 @@
 
 // Récupère et affiche les commandes à venir (à partir d'aujourd'hui)
 async function chargerCommandes() {
-  const aujourdhui = new Date().toISOString().slice(0, 10);
+  const aujourdhui = dateLocale();
 
   const { data, error } = await supabaseClient
     .from('commandes')
@@ -164,7 +164,7 @@ async function ajouterCommande() {
   const produit = document.getElementById('produit').value.trim();
   const atelier = document.getElementById('atelier-commande').value;
   const quantite = parseInt(document.getElementById('quantite').value) || 1;
-  const date_retrait = document.getElementById('date_retrait').value || new Date().toISOString().slice(0,10);
+  const date_retrait = document.getElementById('date_retrait').value || dateLocale();
   const heure_retrait = document.getElementById('heure_retrait').value || null;
   const notes = document.getElementById('notes').value.trim() || null;
   const prise_par = window.profilActuel ? window.profilActuel.nom : null;
@@ -188,7 +188,7 @@ async function ajouterCommande() {
   document.getElementById('quantite').value = 1;
   document.getElementById('heure_retrait').value = '';
   document.getElementById('notes').value = '';
-  document.getElementById('date_retrait').value = new Date().toISOString().slice(0,10);
+  document.getElementById('date_retrait').value = dateLocale();
 }
 
 async function changerStatut(id, statut) {
@@ -199,7 +199,7 @@ async function changerStatut(id, statut) {
 // On attend de savoir qui utilise la tablette avant de charger la page
 initProfil((profil) => {
   window.profilActuel = profil;
-  document.getElementById('date_retrait').value = new Date().toISOString().slice(0,10);
+  document.getElementById('date_retrait').value = dateLocale();
   chargerCommandes();
 
   supabaseClient

@@ -4,6 +4,17 @@
 // jusqu'à ce qu'on clique "changer".
 // ============================================================
 
+// Donne la date du jour au format AAAA-MM-JJ selon l'heure LOCALE
+// (contrairement à toISOString() qui utilise l'heure UTC et peut
+// donc afficher encore "hier" juste après minuit en France)
+function dateLocale(d) {
+  d = d || new Date();
+  const annee = d.getFullYear();
+  const mois = String(d.getMonth() + 1).padStart(2, '0');
+  const jour = String(d.getDate()).padStart(2, '0');
+  return `${annee}-${mois}-${jour}`;
+}
+
 function getProfil() {
   const brut = localStorage.getItem('bm_profil');
   return brut ? JSON.parse(brut) : null;
