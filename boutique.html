@@ -42,6 +42,7 @@
   .statut.en_cours{background:#dcebf7; color:#1a5a8a;}
   .statut.pret{background:#dcf3e3; color:var(--success);}
   .statut.recupere{background:#eee; color:#888;}
+  .statut.annule{background:#f4e4e4; color:#999; text-decoration:line-through;}
   select.statut-select{margin-top:8px; font-size:13px; padding:6px;}
   .empty{opacity:.5; font-size:14px; padding:10px 0;}
 </style>
@@ -136,9 +137,8 @@ async function chargerCommandes() {
       </div>
       <select class="statut-select" onchange="changerStatut('${c.id}', this.value)">
         <option value="a_faire" ${c.statut==='a_faire'?'selected':''}>À faire</option>
-        <option value="en_cours" ${c.statut==='en_cours'?'selected':''}>En cours</option>
         <option value="pret" ${c.statut==='pret'?'selected':''}>Prêt</option>
-        <option value="recupere" ${c.statut==='recupere'?'selected':''}>Récupéré</option>
+        <option value="annule" ${c.statut==='annule'?'selected':''}>Annulée</option>
       </select>
     </div>
   `).join('');
@@ -150,7 +150,7 @@ function formaterDate(dateStr) {
 }
 
 function libelleStatut(s) {
-  return { a_faire: 'À faire', en_cours: 'En cours', pret: 'Prêt', recupere: 'Récupéré' }[s] || s;
+  return { a_faire: 'À faire', pret: 'Prêt', annule: 'Annulée' }[s] || s;
 }
 
 async function ajouterCommande() {
