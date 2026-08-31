@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Courses — Boulangerie Manager</title>
+<title>Commandes fournisseurs — Boulangerie Manager</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:wght@600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -45,7 +45,7 @@
 <body>
 
 <header>
-  <h1>🛒 Courses</h1>
+  <h1>🛒 Commandes fournisseurs</h1>
   <div style="text-align:right;">
     <span id="bandeau-profil" style="display:block;font-size:12px;opacity:.8;"></span>
     <a href="index.html">← Accueil</a> · <a href="#" onclick="effacerProfil()">Changer</a>
@@ -101,36 +101,62 @@
 const NOMS_FOURNISSEURS = { metro: 'Métro', moulin: 'Moulin', esnault: 'Esnault', le_fort: 'Le Fort' };
 const NOMS_DEPARTEMENTS = { vente: '🛎️ Vente', boulangerie: '🍞 Boulangerie', patisserie: '🧁 Pâtisserie' };
 
+let derniereListeCourses = [];
+let fournisseurOuvert = null;
+
 async function chargerCourses() {
-  const conteneur = document.getElementById('liste-courses');
   const afficherAchetes = document.getElementById('toggle-achetes').checked;
 
   let requete = supabaseClient.from('besoins_fournisseurs').select('*').order('created_at', { ascending: true });
   if (!afficherAchetes) requete = requete.eq('achete', false);
 
   const { data, error } = await requete;
+  const conteneur = document.getElementById('liste-courses');
 
   if (error) { conteneur.innerHTML = `<p class="empty">Erreur : ${error.message}</p>`; return; }
-  if (!data || data.length === 0) { conteneur.innerHTML = `<p class="empty">Rien sur la liste pour l'instant.</p>`; return; }
 
-  let html = '';
-  Object.keys(NOMS_FOURNISSEURS).forEach(cle => {
-    const articles = data.filter(a => a.fournisseur === cle);
-    if (articles.length === 0) return;
+  derniereListeCourses = data || [];
+  afficherCourses();
+}
 
-    html += `<div class="fournisseur-titre">${NOMS_FOURNISSEURS[cle]}</div>`;
-    html += articles.map(a => `
-      <div class="article">
-        <input type="checkbox" ${a.achete ? 'checked' : ''} onchange="basculerAchete('${a.id}', this.checked)">
-        <div style="flex:1; ${a.achete ? 'opacity:.4; text-decoration:line-through;' : ''}">
-          <strong>${a.produit}</strong>${a.quantite ? ' — ' + a.quantite : ''}<br>
-          <span class="badge ${a.departement}">${NOMS_DEPARTEMENTS[a.departement]}</span>
+function afficherCourses() {
+  const conteneur = document.getElementById('liste-courses');
+
+  const tuiles = Object.keys(NOMS_FOURNISSEURS).map(cle => {
+    const nb = derniereListeCourses.filter(a => a.fournisseur === cle).length;
+    const actif = fournisseurOuvert === cle;
+    return `
+      <div onclick="ouvrirFournisseur('${cle}')" style="cursor:pointer; text-align:center; padding:16px 8px; border-radius:14px; background:${actif ? '#f1e4c8' : '#f7f4ee'}; flex:1; min-width:100px;">
+        <div style="font-family:'Fraunces',serif; font-weight:700; font-size:15px;">${NOMS_FOURNISSEURS[cle]}</div>
+        <div style="font-size:20px; font-weight:700; color:var(--accent-dark); margin-top:6px;">${nb}</div>
+      </div>`;
+  }).join('');
+
+  let html = `<div style="display:flex; gap:10px; flex-wrap:wrap;">${tuiles}</div>`;
+
+  if (fournisseurOuvert) {
+    const articles = derniereListeCourses.filter(a => a.fournisseur === fournisseurOuvert);
+    html += `<div style="margin-top:16px;">`;
+    html += articles.length === 0
+      ? `<p class="empty">Rien pour ${NOMS_FOURNISSEURS[fournisseurOuvert]} pour l'instant.</p>`
+      : articles.map(a => `
+        <div class="article">
+          <input type="checkbox" ${a.achete ? 'checked' : ''} onchange="basculerAchete('${a.id}', this.checked)">
+          <div style="flex:1; ${a.achete ? 'opacity:.4; text-decoration:line-through;' : ''}">
+            <strong>${a.produit}</strong>${a.quantite ? ' — ' + a.quantite : ''}<br>
+            <span class="badge ${a.departement}">${NOMS_DEPARTEMENTS[a.departement]}</span>
+          </div>
         </div>
-      </div>
-    `).join('');
-  });
+      `).join('');
+    html += `</div>`;
+  }
 
-  conteneur.innerHTML = html || '<p class="empty">Rien sur la liste pour l\'instant.</p>';
+  conteneur.innerHTML = html;
+}
+
+function ouvrirFournisseur(cle) {
+  fournisseurOuvert = (fournisseurOuvert === cle) ? null : cle;
+  afficherCourses();
 }
 
 async function ajouterArticle() {
