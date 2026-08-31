@@ -104,26 +104,10 @@
     <button class="primary" onclick="ajouterCommande()">Ajouter la commande</button>
   </div>
 
-  <button class="bouton-section" onclick="basculerAffichage('section-message')">💬 Message pour le labo</button>
-  <div class="card" id="section-message" style="display:none;">
-    <label>Concerne</label>
-    <select id="atelier-message" onchange="mettreAJourExempleMessage()">
-      <option value="patisserie">🧁 Pâtisserie</option>
-      <option value="boulangerie">🍞 Boulangerie</option>
-    </select>
+  <button class="bouton-section" onclick="ouvrirModalMessage()">💬 Message pour le labo</button>
 
-    <label>Message</label>
-    <input id="texte-message" placeholder="ex: Plus de chouquettes aujourd'hui">
-
-    <button class="primary" onclick="envoyerMessage()">Envoyer</button>
-  </div>
-
-  <button class="bouton-section" onclick="basculerAffichage('section-commandes')">📋 Commandes à venir (7 jours)</button>
+  <button class="bouton-section" onclick="basculerAffichage('section-commandes')">📋 Commandes à venir</button>
   <div class="card" id="section-commandes" style="display:none;">
-    <label style="display:flex; align-items:center; gap:8px; font-size:14px; opacity:.8; margin-bottom:12px;">
-      <input type="checkbox" id="toggle-plus-loin" onchange="chargerCommandes()" style="width:auto;">
-      Voir au-delà de 7 jours
-    </label>
     <div id="liste-commandes">
       <p class="empty">Chargement...</p>
     </div>
@@ -144,24 +128,28 @@ function dansHorairesOuverture(heure) {
   const apresMidi = minutes >= 15 * 60 + 30 && minutes <= 19 * 60 + 30;
   return matin || apresMidi;
 }
+let derniereListeCommandesSemaine = [];
+let joursSemaineCommandes = [];
+let datesSemaineCommandes = [];
+let jourSelectionneCommandes = null;
+
 async function chargerCommandes() {
-  const aujourdhui = dateLocale();
-  const voirPlusLoin = document.getElementById('toggle-plus-loin').checked;
-
-  let requete = supabaseClient
-    .from('commandes')
-    .select('*')
-    .gte('date_retrait', aujourdhui)
-    .order('date_retrait', { ascending: true })
-    .order('heure_retrait', { ascending: true });
-
-  if (!voirPlusLoin) {
-    const dans7jours = new Date();
-    dans7jours.setDate(dans7jours.getDate() + 6);
-    requete = requete.lte('date_retrait', dateLocale(dans7jours));
+  const aujourdhui = new Date();
+  joursSemaineCommandes = [];
+  datesSemaineCommandes = [];
+  for (let i = 0; i < 7; i++) {
+    const d = new Date(aujourdhui);
+    d.setDate(aujourdhui.getDate() + i);
+    datesSemaineCommandes.push(d);
+    joursSemaineCommandes.push(dateLocale(d));
   }
 
-  const { data, error } = await requete;
+  const { data, error } = await supabaseClient
+    .from('commandes')
+    .select('*')
+    .gte('date_retrait', joursSemaineCommandes[0])
+    .lte('date_retrait', joursSemaineCommandes[6])
+    .order('heure_retrait', { ascending: true });
 
   const conteneur = document.getElementById('liste-commandes');
 
@@ -170,32 +158,55 @@ async function chargerCommandes() {
     return;
   }
 
-  if (!data || data.length === 0) {
-    conteneur.innerHTML = `<p class="empty">Aucune commande pour l'instant.</p>`;
-    return;
-  }
-
-  conteneur.innerHTML = data.map(c => `
-    <div class="commande">
-      <div class="commande-top">
-        <div>
-          <strong>${c.client}</strong> — ${c.produit} (x${c.quantite})<br>
-          <small>${formaterDate(c.date_retrait)}${c.heure_retrait ? ' à ' + c.heure_retrait.slice(0,5) : ''}${c.notes ? ' · ' + c.notes : ''}${c.prise_par ? ' · prise par ' + c.prise_par : ''}</small>
-        </div>
-        <span class="statut ${c.statut}">${libelleStatut(c.statut)}</span>
-      </div>
-      <select class="statut-select" onchange="changerStatut('${c.id}', this.value)">
-        <option value="a_faire" ${c.statut==='a_faire'?'selected':''}>À faire</option>
-        <option value="pret" ${c.statut==='pret'?'selected':''}>Prêt</option>
-        <option value="annule" ${c.statut==='annule'?'selected':''}>Annulée</option>
-      </select>
-    </div>
-  `).join('');
+  derniereListeCommandesSemaine = data || [];
+  if (!jourSelectionneCommandes) jourSelectionneCommandes = joursSemaineCommandes[0];
+  afficherCommandes();
 }
 
-function formaterDate(dateStr) {
-  const [an, mois, jour] = dateStr.split('-');
-  return `${jour}/${mois}`;
+function afficherCommandes() {
+  const conteneur = document.getElementById('liste-commandes');
+
+  const tuiles = joursSemaineCommandes.map((j, i) => {
+    const nb = derniereListeCommandesSemaine.filter(c => c.date_retrait === j).length;
+    const actif = jourSelectionneCommandes === j;
+    return `
+      <div onclick="selectionnerJourCommandes('${j}')" style="cursor:pointer; text-align:center; padding:10px 6px; border-radius:10px; background:${actif ? '#f1e4c8' : '#f7f4ee'}; min-width:58px; flex-shrink:0;">
+        <div style="font-size:11px; opacity:.6; text-transform:capitalize;">${datesSemaineCommandes[i].toLocaleDateString('fr-FR', { weekday: 'short' })}</div>
+        <div style="font-size:13px; font-weight:600;">${j.slice(8,10)}/${j.slice(5,7)}</div>
+        <div style="font-size:16px; font-weight:700; color:var(--accent-dark); margin-top:4px;">${nb}</div>
+      </div>`;
+  }).join('');
+
+  const commandesDuJour = derniereListeCommandesSemaine.filter(c => c.date_retrait === jourSelectionneCommandes);
+
+  let html = `<div style="display:flex; gap:8px; overflow-x:auto; padding-bottom:6px;">${tuiles}</div>`;
+  html += `<div style="margin-top:14px;">`;
+  html += commandesDuJour.length === 0
+    ? `<p class="empty">Aucune commande ce jour-là.</p>`
+    : commandesDuJour.map(c => `
+      <div class="commande">
+        <div class="commande-top">
+          <div>
+            <strong>${c.client}</strong> — ${c.produit} (x${c.quantite})<br>
+            <small>${c.heure_retrait ? c.heure_retrait.slice(0,5) : 'Heure non précisée'}${c.notes ? ' · ' + c.notes : ''}${c.prise_par ? ' · prise par ' + c.prise_par : ''}</small>
+          </div>
+          <span class="statut ${c.statut}">${libelleStatut(c.statut)}</span>
+        </div>
+        <select class="statut-select" onchange="changerStatut('${c.id}', this.value)">
+          <option value="a_faire" ${c.statut==='a_faire'?'selected':''}>À faire</option>
+          <option value="pret" ${c.statut==='pret'?'selected':''}>Prêt</option>
+          <option value="annule" ${c.statut==='annule'?'selected':''}>Annulée</option>
+        </select>
+      </div>
+    `).join('');
+  html += `</div>`;
+
+  conteneur.innerHTML = html;
+}
+
+function selectionnerJourCommandes(j) {
+  jourSelectionneCommandes = j;
+  afficherCommandes();
 }
 
 function libelleStatut(s) {
@@ -205,6 +216,31 @@ function libelleStatut(s) {
 function basculerAffichage(id) {
   const el = document.getElementById(id);
   el.style.display = (el.style.display === 'none') ? 'block' : 'none';
+}
+
+function ouvrirModalMessage() {
+  const overlay = document.createElement('div');
+  overlay.id = 'overlay-message';
+  overlay.style.cssText = 'position:fixed;inset:0;background:rgba(36,26,20,.6);display:flex;align-items:center;justify-content:center;z-index:9998;padding:20px;';
+  overlay.innerHTML = `
+    <div style="background:#fff;border-radius:18px;padding:24px;max-width:380px;width:100%;">
+      <h2 style="font-family:'Fraunces',serif;margin-top:0;">💬 Message pour le labo</h2>
+      <label style="display:block;font-size:13px;opacity:.7;margin:10px 0 4px;">Concerne</label>
+      <select id="atelier-message" onchange="mettreAJourExempleMessage()" style="width:100%;padding:12px;border-radius:10px;border:1px solid #ddd;font-size:15px;">
+        <option value="patisserie">🧁 Pâtisserie</option>
+        <option value="boulangerie">🍞 Boulangerie</option>
+      </select>
+      <label style="display:block;font-size:13px;opacity:.7;margin:10px 0 4px;">Message</label>
+      <input id="texte-message" placeholder="ex: Plus de chouquettes aujourd'hui" style="width:100%;padding:12px;border-radius:10px;border:1px solid #ddd;font-size:15px;">
+      <button class="primary" onclick="envoyerMessage()">Envoyer</button>
+      <button onclick="fermerModalMessage()" style="width:100%;border:none;background:none;color:#999;padding:10px;margin-top:6px;font-size:14px;">Annuler</button>
+    </div>`;
+  document.body.appendChild(overlay);
+}
+
+function fermerModalMessage() {
+  const overlay = document.getElementById('overlay-message');
+  if (overlay) overlay.remove();
 }
 
 async function ajouterCommande() {
@@ -272,8 +308,7 @@ async function envoyerMessage() {
 
   if (error) { alert('Erreur : ' + error.message); return; }
 
-  document.getElementById('texte-message').value = '';
-  alert('Message envoyé au labo ' + (atelier === 'patisserie' ? 'pâtisserie' : 'boulangerie') + ' !');
+  fermerModalMessage();
 }
 
 // On attend de savoir qui utilise la tablette avant de charger la page
