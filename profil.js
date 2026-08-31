@@ -48,8 +48,8 @@ function afficherBandeauProfil(employe) {
 
 // Appelle ta logique de page une fois le profil connu :
 // initProfil(function(profil) { ... }, 'vente' | 'boulangerie' | 'patisserie')
-// Le filtreService limite la liste affichée à ce service, mais le chef
-// reste toujours visible (il doit pouvoir agir sur toutes les tablettes).
+// Le filtreService limite la liste affichée aux personnes de ce service,
+// chef compris (un chef n'apparaît que sur la tablette de son propre service).
 async function initProfil(callback, filtreService) {
   const existant = getProfil();
   if (existant) {
@@ -62,7 +62,7 @@ async function initProfil(callback, filtreService) {
   const { data: tousLesEmployes, error } = await supabaseClient.from('employes').select('*').order('nom');
 
   const data = (filtreService && tousLesEmployes)
-    ? tousLesEmployes.filter(e => e.role === 'chef' || e.service === filtreService)
+    ? tousLesEmployes.filter(e => e.service === filtreService)
     : tousLesEmployes;
 
   const overlay = document.createElement('div');
