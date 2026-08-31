@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Réceptions — Boulangerie Manager</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:wght@600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+  :root{
+    --bg:#FAF7F2; --surface:#FFFFFF; --ink:#241A14;
+    --accent:#C68A2E; --accent-dark:#9C6B1E; --radius:18px;
+  }
+  *{box-sizing:border-box;}
+  body{font-family:'Inter',Arial,sans-serif; margin:0; background:var(--bg); color:var(--ink);}
+  header{background:var(--ink); color:#fff; padding:22px 20px; display:flex; align-items:center; justify-content:space-between;}
+  header h1{margin:0; font-family:'Fraunces',serif; font-size:22px;}
+  header a{color:#fff; opacity:.7; text-decoration:none; font-size:13px;}
+  main{padding:20px; max-width:700px; margin:auto;}
+  .card{background:var(--surface); border-radius:var(--radius); padding:20px; margin-bottom:16px; box-shadow:0 2px 8px rgba(0,0,0,.06);}
+  .card h2{margin-top:0; font-family:'Fraunces',serif; font-size:19px;}
+  label{display:block; font-size:13px; opacity:.7; margin:10px 0 4px;}
+  input{width:100%; padding:12px; border-radius:10px; border:1px solid #ddd; font-size:15px; font-family:inherit;}
+  button.primary{
+    margin-top:16px; width:100%; border:none; background:var(--accent); color:#241A14;
+    padding:14px; border-radius:12px; font-size:16px; font-weight:600;
+  }
+  button.primary:active{transform:scale(0.98); }
+  button.primary:disabled{opacity:.5;}
+  .reception{display:flex; gap:14px; align-items:center; padding:14px 0; border-bottom:1px solid #eee;}
+  .reception:last-child{border-bottom:none;}
+  .reception small{opacity:.6;}
+  .empty{opacity:.5; font-size:14px; padding:10px 0;}
+</style>
+</head>
+<body>
+
+<header>
+  <h1>🏷️ Réceptions</h1>
+  <div style="text-align:right;">
+    <span id="bandeau-profil" style="display:block;font-size:12px;opacity:.8;"></span>
+    <a href="index.html">← Accueil</a> · <a href="#" onclick="effacerProfil()">Changer</a>
+  </div>
+</header>
+
+<main id="zone-reception">
+  <div class="card">
+    <h2>Nouvelle réception</h2>
+    <label>Produit</label>
+    <input id="produit-reception" placeholder="ex: Farine T65">
+
+    <label>Numéro de lot</label>
+    <input id="lot-reception" placeholder="ex: L2456A">
+
+    <label>Date de réception</label>
+    <input id="date-reception" type="date">
+
+    <button class="primary" id="btn-enregistrer" onclick="ajouterReception()">Enregistrer la réception</button>
+  </div>
+
+  <div class="card">
+    <h2>Réceptions des 3 derniers mois</h2>
+    <div id="liste-receptions"><p class="empty">Chargement...</p></div>
+  </div>
+</main>
+
+<script src="supabase-config.js"></script>
+<script src="profil.js"></script>
+<script>
+
+function formaterDateAffichage(dateStr) {
+  const [an, mois, jour] = dateStr.split('-');
+  return `${jour}/${mois}/${an}`;
+}
+
+async function chargerReceptions() {
+  const conteneur = document.getElementById('liste-receptions');
+  const troisMoisAvant = new Date();
+  troisMoisAvant.setMonth(troisMoisAvant.getMonth() - 3);
+  const dateLimite = dateLocale(troisMoisAvant);
+
+  const { data, error } = await supabaseClient
+    .from('receptions')
+    .select('*')
+    .gte('date_reception', dateLimite)
+    .order('date_reception', { ascending: false });
+
+  if (error) { conteneur.innerHTML = `<p class="empty">Erreur : ${error.message}</p>`; return; }
+  if (!data || data.length === 0) { conteneur.innerHTML = `<p class="empty">Aucune réception enregistrée sur les 3 derniers mois.</p>`; return; }
+
+  conteneur.innerHTML = data.map(r => `
+    <div class="reception">
+      <div style="width:64px;height:64px;border-radius:10px;background:#eee;display:flex;align-items:center;justify-content:center;font-size:22px;flex-shrink:0;">🏷️</div>
+      <div style="flex:1;">
+        <strong>${r.produit}</strong><br>
+        <small>Lot ${r.numero_lot} · ${formaterDateAffichage(r.date_reception)}${r.enregistre_par ? ' · ' + r.enregistre_par : ''}</small>
+      </div>
+    </div>
+  `).join('');
+}
+
+async function ajouterReception() {
+  const bouton = document.getElementById('btn-enregistrer');
+  const produit = document.getElementById('produit-reception').value.trim();
+  const numero_lot = document.getElementById('lot-reception').value.trim();
+  const date_reception = document.getElementById('date-reception').value || dateLocale();
+  const enregistre_par = window.profilActuel ? window.profilActuel.nom : null;
+
+  if (!produit || !numero_lot) {
+    alert('Merci de renseigner au moins le produit et le numéro de lot.');
+    return;
+  }
+
+  bouton.disabled = true;
+  bouton.textContent = 'Enregistrement...';
+
+  const { error } = await supabaseClient.from('receptions').insert([
+    { produit, numero_lot, date_reception, enregistre_par }
+  ]);
+
+  bouton.disabled = false;
+  bouton.textContent = 'Enregistrer la réception';
+
+  if (error) { alert('Erreur : ' + error.message); return; }
+
+  document.getElementById('produit-reception').value = '';
+  document.getElementById('lot-reception').value = '';
+  document.getElementById('date-reception').value = dateLocale();
+  chargerReceptions();
+}
+
+// Réservé au chef : seul lui peut enregistrer et consulter les réceptions
+initProfil((profil) => {
+  window.profilActuel = profil;
+
+  if (profil.role !== 'chef') {
+    document.getElementById('zone-reception').innerHTML =
+      '<div class="card"><p class="empty">Cette page est réservée au chef.</p></div>';
+    return;
+  }
+
+  document.getElementById('date-reception').value = dateLocale();
+  chargerReceptions();
+});
+
+</script>
+</body>
+</html>
