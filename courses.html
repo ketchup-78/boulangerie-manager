@@ -10,7 +10,7 @@
 <style>
   :root{
     --bg:#FAF7F2; --surface:#FFFFFF; --ink:#241A14;
-    --accent:#C68A2E; --accent-dark:#9C6B1E; --radius:18px;
+    --accent:#C68A2E; --accent-dark:#9C6B1E; --danger:#B00020; --radius:18px;
   }
   *{box-sizing:border-box;}
   body{font-family:'Inter',Arial,sans-serif; margin:0; background:var(--bg); color:var(--ink);}
@@ -137,6 +137,9 @@ function afficherCourses() {
   if (fournisseurOuvert) {
     const articles = derniereListeCourses.filter(a => a.fournisseur === fournisseurOuvert);
     html += `<div style="margin-top:16px;">`;
+    if (articles.length > 0) {
+      html += `<button onclick="supprimerListeFournisseur('${fournisseurOuvert}')" style="border:none; background:none; color:var(--danger); font-size:13px; text-decoration:underline; cursor:pointer; margin-bottom:10px; padding:0;">Vider toute la liste ${NOMS_FOURNISSEURS[fournisseurOuvert]}</button>`;
+    }
     html += articles.length === 0
       ? `<p class="empty">Rien pour ${NOMS_FOURNISSEURS[fournisseurOuvert]} pour l'instant.</p>`
       : articles.map(a => `
@@ -146,6 +149,7 @@ function afficherCourses() {
             <strong>${a.produit}</strong>${a.quantite ? ' — ' + a.quantite : ''}<br>
             <span class="badge ${a.departement}">${NOMS_DEPARTEMENTS[a.departement]}</span>
           </div>
+          <button onclick="supprimerArticle('${a.id}')" style="border:none; background:none; font-size:18px; cursor:pointer; opacity:.4; padding:4px;">🗑️</button>
         </div>
       `).join('');
     html += `</div>`;
@@ -185,6 +189,20 @@ async function ajouterArticle() {
 async function basculerAchete(id, achete) {
   const { error } = await supabaseClient.from('besoins_fournisseurs').update({ achete }).eq('id', id);
   if (error) alert('Erreur : ' + error.message);
+}
+
+async function supprimerArticle(id) {
+  if (!confirm('Supprimer définitivement cet article de la liste ?')) return;
+  const { error } = await supabaseClient.from('besoins_fournisseurs').delete().eq('id', id);
+  if (error) { alert('Erreur : ' + error.message); return; }
+  chargerCourses();
+}
+
+async function supprimerListeFournisseur(fournisseur) {
+  if (!confirm(`Supprimer TOUS les articles de la liste ${NOMS_FOURNISSEURS[fournisseur]} ? Cette action est irréversible.`)) return;
+  const { error } = await supabaseClient.from('besoins_fournisseurs').delete().eq('fournisseur', fournisseur);
+  if (error) { alert('Erreur : ' + error.message); return; }
+  chargerCourses();
 }
 
 initProfil((profil) => {
