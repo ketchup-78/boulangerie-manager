@@ -292,6 +292,37 @@ async function remplirListeEmployes() {
   }
 }
 
+// ---------- MESSAGE DU JOUR (boutique -> labo) ----------
+async function verifierMessageDuJour() {
+  const { data, error } = await supabaseClient
+    .from('messages_jour')
+    .select('*')
+    .eq('atelier', atelier)
+    .eq('vu', false)
+    .order('created_at', { ascending: true });
+
+  if (error || !data || data.length === 0) return;
+
+  const overlay = document.createElement('div');
+  overlay.style.cssText = 'position:fixed;inset:0;background:rgba(36,26,20,.6);display:flex;align-items:center;justify-content:center;z-index:9998;padding:20px;';
+  overlay.innerHTML = `
+    <div style="background:#fff;border-radius:18px;padding:24px;max-width:380px;width:100%;">
+      <h2 style="font-family:'Fraunces',serif;margin-top:0;">💬 Message de la boutique</h2>
+      ${data.map(m => `
+        <p style="margin:14px 0; padding-bottom:14px; border-bottom:1px solid #eee;">
+          ${m.message}${m.auteur ? '<br><small style="opacity:.6;">— ' + m.auteur + '</small>' : ''}
+        </p>`).join('')}
+      <button class="primary" id="btn-fermer-message" style="margin-top:0;">J'ai vu, merci</button>
+    </div>`;
+  document.body.appendChild(overlay);
+
+  document.getElementById('btn-fermer-message').onclick = async () => {
+    const ids = data.map(m => m.id);
+    await supabaseClient.from('messages_jour').update({ vu: true }).in('id', ids);
+    overlay.remove();
+  };
+}
+
 function chargerTout() {
   chargerTaches();
   chargerCommandes();
@@ -302,6 +333,7 @@ function chargerTout() {
 initProfil((profil) => {
   window.profilActuel = profil;
   document.getElementById('date-commandes').value = dateLocale();
+  verifierMessageDuJour();
 
   // Seul le chef peut créer et assigner des tâches
   if (profil.role !== 'chef') {

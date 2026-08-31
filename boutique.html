@@ -99,6 +99,20 @@
   </div>
 
   <div class="card">
+    <h2>💬 Message pour le labo</h2>
+    <label>Concerne</label>
+    <select id="atelier-message">
+      <option value="patisserie">🧁 Pâtisserie</option>
+      <option value="boulangerie">🍞 Boulangerie</option>
+    </select>
+
+    <label>Message</label>
+    <input id="texte-message" placeholder="ex: Moins de pains spéciaux aujourd'hui">
+
+    <button class="primary" onclick="envoyerMessage()">Envoyer</button>
+  </div>
+
+  <div class="card">
     <h2>Commandes à venir</h2>
     <div id="liste-commandes">
       <p class="empty">Chargement...</p>
@@ -210,6 +224,26 @@ async function ajouterCommande() {
 async function changerStatut(id, statut) {
   const { error } = await supabaseClient.from('commandes').update({ statut }).eq('id', id);
   if (error) alert('Erreur : ' + error.message);
+}
+
+async function envoyerMessage() {
+  const atelier = document.getElementById('atelier-message').value;
+  const message = document.getElementById('texte-message').value.trim();
+  const auteur = window.profilActuel ? window.profilActuel.nom : null;
+
+  if (!message) {
+    alert('Merci d\'écrire un message.');
+    return;
+  }
+
+  const { error } = await supabaseClient.from('messages_jour').insert([
+    { atelier, message, auteur }
+  ]);
+
+  if (error) { alert('Erreur : ' + error.message); return; }
+
+  document.getElementById('texte-message').value = '';
+  alert('Message envoyé au labo ' + (atelier === 'patisserie' ? 'pâtisserie' : 'boulangerie') + ' !');
 }
 
 // On attend de savoir qui utilise la tablette avant de charger la page
