@@ -31,6 +31,12 @@
     padding:14px; border-radius:12px; font-size:16px; font-weight:600;
   }
   button.primary:active{transform:scale(0.98);}
+  button.bouton-section{
+    width:100%; border:none; background:var(--ink); color:#fff;
+    padding:18px; border-radius:16px; font-size:16px; font-weight:600;
+    font-family:'Fraunces',serif; margin-bottom:14px; text-align:left;
+  }
+  button.bouton-section:active{transform:scale(0.98);}
   .commande{padding:14px 0; border-bottom:1px solid #eee;}
   .commande:last-child{border-bottom:none;}
   .commande-top{display:flex; justify-content:space-between; align-items:center;}
@@ -98,8 +104,8 @@
     <button class="primary" onclick="ajouterCommande()">Ajouter la commande</button>
   </div>
 
-  <div class="card">
-    <h2>💬 Message pour le labo</h2>
+  <button class="bouton-section" onclick="basculerAffichage('section-message')">💬 Message pour le labo</button>
+  <div class="card" id="section-message" style="display:none;">
     <label>Concerne</label>
     <select id="atelier-message" onchange="mettreAJourExempleMessage()">
       <option value="patisserie">🧁 Pâtisserie</option>
@@ -112,8 +118,12 @@
     <button class="primary" onclick="envoyerMessage()">Envoyer</button>
   </div>
 
-  <div class="card">
-    <h2>Commandes à venir</h2>
+  <button class="bouton-section" onclick="basculerAffichage('section-commandes')">📋 Commandes à venir (7 jours)</button>
+  <div class="card" id="section-commandes" style="display:none;">
+    <label style="display:flex; align-items:center; gap:8px; font-size:14px; opacity:.8; margin-bottom:12px;">
+      <input type="checkbox" id="toggle-plus-loin" onchange="chargerCommandes()" style="width:auto;">
+      Voir au-delà de 7 jours
+    </label>
     <div id="liste-commandes">
       <p class="empty">Chargement...</p>
     </div>
@@ -136,13 +146,22 @@ function dansHorairesOuverture(heure) {
 }
 async function chargerCommandes() {
   const aujourdhui = dateLocale();
+  const voirPlusLoin = document.getElementById('toggle-plus-loin').checked;
 
-  const { data, error } = await supabaseClient
+  let requete = supabaseClient
     .from('commandes')
     .select('*')
     .gte('date_retrait', aujourdhui)
     .order('date_retrait', { ascending: true })
     .order('heure_retrait', { ascending: true });
+
+  if (!voirPlusLoin) {
+    const dans7jours = new Date();
+    dans7jours.setDate(dans7jours.getDate() + 6);
+    requete = requete.lte('date_retrait', dateLocale(dans7jours));
+  }
+
+  const { data, error } = await requete;
 
   const conteneur = document.getElementById('liste-commandes');
 
@@ -181,6 +200,11 @@ function formaterDate(dateStr) {
 
 function libelleStatut(s) {
   return { a_faire: 'À faire', pret: 'Prêt', annule: 'Annulée' }[s] || s;
+}
+
+function basculerAffichage(id) {
+  const el = document.getElementById(id);
+  el.style.display = (el.style.display === 'none') ? 'block' : 'none';
 }
 
 async function ajouterCommande() {
