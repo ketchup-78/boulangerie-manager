@@ -28,11 +28,9 @@
     padding:14px; border-radius:12px; font-size:16px; font-weight:600;
   }
   button.primary:active{transform:scale(0.98);}
-  details{border-bottom:1px solid #eee; padding:14px 0;}
-  details:last-child{border-bottom:none;}
-  summary{font-family:'Fraunces',serif; font-size:16px; font-weight:600; cursor:pointer;}
-  .contenu-recette{margin-top:12px; font-size:14px; line-height:1.6;}
-  .contenu-recette h4{margin:10px 0 4px; font-size:13px; opacity:.6; text-transform:uppercase; letter-spacing:.03em;}
+  .task{display:flex; justify-content:space-between; align-items:center; gap:10px; padding:14px 0; border-bottom:1px solid #eee;}
+  .task:last-child{border-bottom:none;}
+  .task span{font-family:'Fraunces',serif; font-size:16px; font-weight:600;}
   .empty{opacity:.5; font-size:14px; padding:10px 0;}
 </style>
 </head>
@@ -52,13 +50,10 @@
     <label>Nom de la recette</label>
     <input id="nom" placeholder="ex: Pain de campagne">
 
-    <label>Ingrédients (un par ligne)</label>
-    <textarea id="ingredients" placeholder="1kg farine T65&#10;700ml eau&#10;20g sel&#10;5g levure"></textarea>
+    <label>Fiche recette (PDF)</label>
+    <input id="pdf-recette" type="file" accept="application/pdf">
 
-    <label>Étapes</label>
-    <textarea id="etapes" placeholder="1. Mélanger...&#10;2. Pétrir...&#10;3. Laisser pousser..."></textarea>
-
-    <button class="primary" onclick="ajouterRecette()">Ajouter la recette</button>
+    <button class="primary" id="btn-ajouter-recette" onclick="ajouterRecette()">Ajouter la recette</button>
   </div>
 
   <div class="card">
@@ -100,15 +95,12 @@ async function chargerRecettes() {
   }
 
   conteneur.innerHTML = data.map(r => `
-    <details>
-      <summary>${r.nom}</summary>
-      <div class="contenu-recette">
-        <h4>Ingrédients</h4>
-        <ul>${(r.ingredients || []).map(i => `<li>${i}</li>`).join('')}</ul>
-        <h4>Étapes</h4>
-        <p>${(r.etapes || '').replace(/\n/g, '<br>')}</p>
-      </div>
-    </details>
+    <div class="task">
+      <span>${r.nom}</span>
+      ${r.pdf_url
+        ? `<a href="${r.pdf_url}" target="_blank" class="small" style="text-decoration:none; display:inline-block; background:var(--ink); color:#fff; padding:10px 15px; border-radius:10px; font-size:14px;">📄 Voir le PDF</a>`
+        : `<span style="opacity:.4; font-size:13px;">Aucun PDF</span>`}
+    </div>
   `).join('');
 }
 
@@ -118,23 +110,39 @@ async function ajouterRecette() {
     return;
   }
 
+  const bouton = document.getElementById('btn-ajouter-recette');
   const nom = document.getElementById('nom').value.trim();
-  const ingredientsTexte = document.getElementById('ingredients').value;
-  const etapes = document.getElementById('etapes').value.trim();
+  const fichier = document.getElementById('pdf-recette').files[0];
 
   if (!nom) {
     alert('Merci de donner un nom à la recette.');
     return;
   }
 
-  const ingredients = ingredientsTexte
-    .split('\n')
-    .map(l => l.trim())
-    .filter(l => l.length > 0);
+  bouton.disabled = true;
+  bouton.textContent = 'Enregistrement...';
+
+  let pdf_url = null;
+
+  if (fichier) {
+    const nomFichier = Date.now() + '-' + fichier.name.replace(/\s+/g, '_');
+    const { error: erreurUpload } = await supabaseClient.storage.from('recettes').upload(nomFichier, fichier);
+    if (erreurUpload) {
+      alert("Erreur lors de l'envoi du PDF : " + erreurUpload.message);
+      bouton.disabled = false;
+      bouton.textContent = 'Ajouter la recette';
+      return;
+    }
+    const { data: urlData } = supabaseClient.storage.from('recettes').getPublicUrl(nomFichier);
+    pdf_url = urlData.publicUrl;
+  }
 
   const { error } = await supabaseClient.from('recettes').insert([
-    { nom, ingredients, etapes, atelier }
+    { nom, atelier, pdf_url }
   ]);
+
+  bouton.disabled = false;
+  bouton.textContent = 'Ajouter la recette';
 
   if (error) {
     alert('Erreur : ' + error.message);
@@ -142,8 +150,7 @@ async function ajouterRecette() {
   }
 
   document.getElementById('nom').value = '';
-  document.getElementById('ingredients').value = '';
-  document.getElementById('etapes').value = '';
+  document.getElementById('pdf-recette').value = '';
   chargerRecettes();
 }
 
