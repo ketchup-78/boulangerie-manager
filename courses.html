@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Courses — Boulangerie Manager</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:wght@600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+  :root{
+    --bg:#FAF7F2; --surface:#FFFFFF; --ink:#241A14;
+    --accent:#C68A2E; --accent-dark:#9C6B1E; --radius:18px;
+  }
+  *{box-sizing:border-box;}
+  body{font-family:'Inter',Arial,sans-serif; margin:0; background:var(--bg); color:var(--ink);}
+  header{background:var(--ink); color:#fff; padding:22px 20px; display:flex; align-items:center; justify-content:space-between;}
+  header h1{margin:0; font-family:'Fraunces',serif; font-size:22px;}
+  header a{color:#fff; opacity:.7; text-decoration:none; font-size:13px;}
+  main{padding:20px; max-width:700px; margin:auto;}
+  .card{background:var(--surface); border-radius:var(--radius); padding:20px; margin-bottom:16px; box-shadow:0 2px 8px rgba(0,0,0,.06);}
+  .card h2{margin-top:0; font-family:'Fraunces',serif; font-size:19px;}
+  label{display:block; font-size:13px; opacity:.7; margin:10px 0 4px;}
+  input, select{width:100%; padding:12px; border-radius:10px; border:1px solid #ddd; font-size:15px; font-family:inherit;}
+  .row{display:flex; gap:10px;}
+  .row > div{flex:1;}
+  button.primary{
+    margin-top:16px; width:100%; border:none; background:var(--accent); color:#241A14;
+    padding:14px; border-radius:12px; font-size:16px; font-weight:600;
+  }
+  button.primary:active{transform:scale(0.98);}
+  .fournisseur-titre{font-family:'Fraunces',serif; font-size:18px; font-weight:700; margin:0 0 8px;}
+  .article{display:flex; align-items:flex-start; gap:12px; padding:12px 0; border-bottom:1px solid #eee;}
+  .article:last-child{border-bottom:none;}
+  .article input[type="checkbox"]{width:auto; margin-top:4px;}
+  .badge{font-size:11px; font-weight:600; padding:3px 9px; border-radius:20px; display:inline-block; margin-top:4px;}
+  .badge.vente{background:#f1e4c8; color:#7a5a12;}
+  .badge.boulangerie{background:#ead9c4; color:#7a4a1a;}
+  .badge.patisserie{background:#f3ddea; color:#8a3a68;}
+  .empty{opacity:.5; font-size:14px; padding:10px 0;}
+  label.case{display:flex; align-items:center; gap:8px; margin-top:12px; font-size:14px; opacity:.8;}
+  label.case input{width:auto;}
+</style>
+</head>
+<body>
+
+<header>
+  <h1>🛒 Courses</h1>
+  <div style="text-align:right;">
+    <span id="bandeau-profil" style="display:block;font-size:12px;opacity:.8;"></span>
+    <a href="index.html">← Accueil</a> · <a href="#" onclick="effacerProfil()">Changer</a>
+  </div>
+</header>
+
+<main>
+  <div class="card">
+    <h2>Ajouter un article</h2>
+    <label>Produit</label>
+    <input id="produit-course" placeholder="ex: Farine T65">
+
+    <label>Quantité (optionnel)</label>
+    <input id="quantite-course" placeholder="ex: 2 sacs">
+
+    <div class="row">
+      <div>
+        <label>Fournisseur</label>
+        <select id="fournisseur-course">
+          <option value="metro">Métro</option>
+          <option value="moulin">Moulin</option>
+          <option value="esnault">Esnault</option>
+          <option value="le_fort">Le Fort</option>
+        </select>
+      </div>
+      <div>
+        <label>Pour</label>
+        <select id="departement-course">
+          <option value="vente">🛎️ Vente</option>
+          <option value="boulangerie">🍞 Boulangerie</option>
+          <option value="patisserie">🧁 Pâtisserie</option>
+        </select>
+      </div>
+    </div>
+
+    <button class="primary" onclick="ajouterArticle()">Ajouter à la liste</button>
+  </div>
+
+  <div class="card">
+    <h2>Liste par fournisseur</h2>
+    <label class="case">
+      <input type="checkbox" id="toggle-achetes" onchange="chargerCourses()">
+      Voir aussi les articles déjà achetés
+    </label>
+    <div id="liste-courses" style="margin-top:14px;"><p class="empty">Chargement...</p></div>
+  </div>
+</main>
+
+<script src="supabase-config.js"></script>
+<script src="profil.js"></script>
+<script>
+
+const NOMS_FOURNISSEURS = { metro: 'Métro', moulin: 'Moulin', esnault: 'Esnault', le_fort: 'Le Fort' };
+const NOMS_DEPARTEMENTS = { vente: '🛎️ Vente', boulangerie: '🍞 Boulangerie', patisserie: '🧁 Pâtisserie' };
+
+async function chargerCourses() {
+  const conteneur = document.getElementById('liste-courses');
+  const afficherAchetes = document.getElementById('toggle-achetes').checked;
+
+  let requete = supabaseClient.from('besoins_fournisseurs').select('*').order('created_at', { ascending: true });
+  if (!afficherAchetes) requete = requete.eq('achete', false);
+
+  const { data, error } = await requete;
+
+  if (error) { conteneur.innerHTML = `<p class="empty">Erreur : ${error.message}</p>`; return; }
+  if (!data || data.length === 0) { conteneur.innerHTML = `<p class="empty">Rien sur la liste pour l'instant.</p>`; return; }
+
+  let html = '';
+  Object.keys(NOMS_FOURNISSEURS).forEach(cle => {
+    const articles = data.filter(a => a.fournisseur === cle);
+    if (articles.length === 0) return;
+
+    html += `<div class="fournisseur-titre">${NOMS_FOURNISSEURS[cle]}</div>`;
+    html += articles.map(a => `
+      <div class="article">
+        <input type="checkbox" ${a.achete ? 'checked' : ''} onchange="basculerAchete('${a.id}', this.checked)">
+        <div style="flex:1; ${a.achete ? 'opacity:.4; text-decoration:line-through;' : ''}">
+          <strong>${a.produit}</strong>${a.quantite ? ' — ' + a.quantite : ''}<br>
+          <span class="badge ${a.departement}">${NOMS_DEPARTEMENTS[a.departement]}</span>
+        </div>
+      </div>
+    `).join('');
+  });
+
+  conteneur.innerHTML = html || '<p class="empty">Rien sur la liste pour l\'instant.</p>';
+}
+
+async function ajouterArticle() {
+  const produit = document.getElementById('produit-course').value.trim();
+  const quantite = document.getElementById('quantite-course').value.trim() || null;
+  const fournisseur = document.getElementById('fournisseur-course').value;
+  const departement = document.getElementById('departement-course').value;
+  const ajoute_par = window.profilActuel ? window.profilActuel.nom : null;
+
+  if (!produit) {
+    alert('Merci de préciser le produit.');
+    return;
+  }
+
+  const { error } = await supabaseClient.from('besoins_fournisseurs').insert([
+    { produit, quantite, fournisseur, departement, ajoute_par }
+  ]);
+
+  if (error) { alert('Erreur : ' + error.message); return; }
+
+  document.getElementById('produit-course').value = '';
+  document.getElementById('quantite-course').value = '';
+  chargerCourses();
+}
+
+async function basculerAchete(id, achete) {
+  const { error } = await supabaseClient.from('besoins_fournisseurs').update({ achete }).eq('id', id);
+  if (error) alert('Erreur : ' + error.message);
+}
+
+initProfil((profil) => {
+  window.profilActuel = profil;
+  chargerCourses();
+
+  supabaseClient
+    .channel('courses')
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'besoins_fournisseurs' }, chargerCourses)
+    .subscribe();
+});
+
+</script>
+</body>
+</html>
