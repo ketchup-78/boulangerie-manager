@@ -25,6 +25,20 @@ function effacerProfil() {
   location.reload();
 }
 
+// Redemande automatiquement "Qui es-tu ?" après 5 minutes sans interaction
+// (utile sur une tablette partagée, pour ne pas laisser un profil ouvert)
+let minuteurInactivite;
+function reinitialiserMinuteurInactivite() {
+  clearTimeout(minuteurInactivite);
+  minuteurInactivite = setTimeout(effacerProfil, 5 * 60 * 1000);
+}
+function demarrerSurveillanceInactivite() {
+  reinitialiserMinuteurInactivite();
+  ['click', 'touchstart', 'keydown'].forEach(evt => {
+    document.addEventListener(evt, reinitialiserMinuteurInactivite);
+  });
+}
+
 function afficherBandeauProfil(employe) {
   const bandeau = document.getElementById('bandeau-profil');
   if (bandeau) {
@@ -40,6 +54,7 @@ async function initProfil(callback, filtreService) {
   const existant = getProfil();
   if (existant) {
     afficherBandeauProfil(existant);
+    demarrerSurveillanceInactivite();
     callback(existant);
     return;
   }
@@ -95,6 +110,7 @@ async function initProfil(callback, filtreService) {
       localStorage.setItem('bm_profil', JSON.stringify(employe));
       overlay.remove();
       afficherBandeauProfil(employe);
+      demarrerSurveillanceInactivite();
       callback(employe);
     };
   });
