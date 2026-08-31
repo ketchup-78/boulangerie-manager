@@ -106,8 +106,8 @@
 
   <button class="bouton-section" onclick="ouvrirModalMessage()">💬 Message pour le labo</button>
 
-  <button class="bouton-section" onclick="basculerAffichage('section-commandes')">📋 Commandes à venir</button>
-  <div class="card" id="section-commandes" style="display:none;">
+  <div class="card">
+    <h2>📋 Commandes à venir</h2>
     <div id="liste-commandes">
       <p class="empty">Chargement...</p>
     </div>
@@ -211,11 +211,6 @@ function selectionnerJourCommandes(j) {
 
 function libelleStatut(s) {
   return { a_faire: 'À faire', pret: 'Prêt', annule: 'Annulée' }[s] || s;
-}
-
-function basculerAffichage(id) {
-  const el = document.getElementById(id);
-  el.style.display = (el.style.display === 'none') ? 'block' : 'none';
 }
 
 function ouvrirModalMessage() {
