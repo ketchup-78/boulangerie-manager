@@ -101,13 +101,13 @@
   <div class="card">
     <h2>💬 Message pour le labo</h2>
     <label>Concerne</label>
-    <select id="atelier-message">
+    <select id="atelier-message" onchange="mettreAJourExempleMessage()">
       <option value="patisserie">🧁 Pâtisserie</option>
       <option value="boulangerie">🍞 Boulangerie</option>
     </select>
 
     <label>Message</label>
-    <input id="texte-message" placeholder="ex: Moins de pains spéciaux aujourd'hui">
+    <input id="texte-message" placeholder="ex: Plus de chouquettes aujourd'hui">
 
     <button class="primary" onclick="envoyerMessage()">Envoyer</button>
   </div>
@@ -224,6 +224,12 @@ async function ajouterCommande() {
 async function changerStatut(id, statut) {
   const { error } = await supabaseClient.from('commandes').update({ statut }).eq('id', id);
   if (error) alert('Erreur : ' + error.message);
+}
+
+function mettreAJourExempleMessage() {
+  const atelier = document.getElementById('atelier-message').value;
+  document.getElementById('texte-message').placeholder =
+    atelier === 'patisserie' ? "ex: Plus de chouquettes aujourd'hui" : "ex: Moins de pains spéciaux aujourd'hui";
 }
 
 async function envoyerMessage() {
