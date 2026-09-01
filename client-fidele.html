@@ -63,12 +63,6 @@ async function chargerClientsReguliers() {
   conteneur.innerHTML = '';
 
   for (const client of clients) {
-    const { data: produits } = await supabaseClient
-      .from('clients_reguliers_produits')
-      .select('*')
-      .eq('client_id', client.id)
-      .order('created_at', { ascending: true });
-
     const emoji = client.atelier === 'patisserie' ? '🧁' : (client.atelier === 'vente' ? '🛎️' : '🍞');
     const accesInterdit = client.reserve_chef && (!window.profilActuel || window.profilActuel.role !== 'chef');
 
@@ -80,6 +74,32 @@ async function chargerClientsReguliers() {
       conteneur.appendChild(carte);
       continue;
     }
+
+    if (client.mode === 'libre') {
+      carte.innerHTML = `
+        <h2>${emoji} ${client.nom}</h2>
+        <div id="lignes-libres-${client.id}">
+          ${[0,1,2].map(() => `
+            <div class="ligne-produit">
+              <input type="text" placeholder="Produit" class="produit-libre" style="flex:2;">
+              <input type="number" min="0" placeholder="Qté" class="quantite-libre">
+            </div>
+          `).join('')}
+        </div>
+        <button onclick="ajouterLigneLibre('${client.id}')" style="border:none; background:none; color:var(--accent-dark); font-size:13px; text-decoration:underline; cursor:pointer; padding:0; margin-bottom:6px;">+ Ajouter une ligne</button>
+        <button class="primary" onclick='enregistrerCommandeLibre(${JSON.stringify(client.id)}, ${JSON.stringify(client.nom)}, ${JSON.stringify(client.atelier)})'>Enregistrer la commande</button>
+        <button class="lien-historique" onclick="basculerHistorique('${client.id}', '${client.nom.replace(/'/g, "\\'")}')">📊 Voir l'historique</button>
+        <div id="historique-${client.id}" style="display:none; margin-top:14px;"></div>
+      `;
+      conteneur.appendChild(carte);
+      continue;
+    }
+
+    const { data: produits } = await supabaseClient
+      .from('clients_reguliers_produits')
+      .select('*')
+      .eq('client_id', client.id)
+      .order('created_at', { ascending: true });
 
     carte.innerHTML = `
       <h2>${emoji} ${client.nom}</h2>
@@ -95,6 +115,47 @@ async function chargerClientsReguliers() {
     `;
     conteneur.appendChild(carte);
   }
+}
+
+function ajouterLigneLibre(clientId) {
+  const conteneur = document.getElementById('lignes-libres-' + clientId);
+  const ligne = document.createElement('div');
+  ligne.className = 'ligne-produit';
+  ligne.innerHTML = `
+    <input type="text" placeholder="Produit" class="produit-libre" style="flex:2;">
+    <input type="number" min="0" placeholder="Qté" class="quantite-libre">
+  `;
+  conteneur.appendChild(ligne);
+}
+
+async function enregistrerCommandeLibre(clientId, nomClient, atelier) {
+  const conteneur = document.getElementById('lignes-libres-' + clientId);
+  const champsProduits = conteneur.querySelectorAll('.produit-libre');
+  const champsQuantites = conteneur.querySelectorAll('.quantite-libre');
+  const auteur = window.profilActuel ? window.profilActuel.nom : null;
+  const aujourdhui = dateLocale();
+
+  const lignes = [];
+  champsProduits.forEach((input, i) => {
+    const produit = input.value.trim();
+    const quantite = parseFloat(champsQuantites[i].value) || 0;
+    if (produit && quantite > 0) {
+      lignes.push({ client: nomClient, produit, quantite, atelier, date_retrait: aujourdhui, prise_par: auteur, notes: 'Client régulier' });
+    }
+  });
+
+  if (lignes.length === 0) {
+    alert('Merci de renseigner au moins un produit et sa quantité.');
+    return;
+  }
+
+  const { error } = await supabaseClient.from('commandes').insert(lignes);
+  if (error) { alert('Erreur : ' + error.message); return; }
+
+  alert('Commande enregistrée (' + lignes.length + ' produit(s)).');
+
+  champsProduits.forEach(input => input.value = '');
+  champsQuantites.forEach(input => input.value = '');
 }
 
 async function enregistrerCommandeDuMatin(clientId, nomClient, atelier) {
