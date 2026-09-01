@@ -38,7 +38,7 @@
 <body>
 
 <header>
-  <h1>🏪 Casino Shop</h1>
+  <h1 id="titre-page">🏪 Casino Shop</h1>
   <div style="text-align:right;">
     <span id="bandeau-profil" style="display:block;font-size:12px;opacity:.8;"></span>
     <a href="index.html">← Accueil</a> · <a href="#" onclick="effacerProfil()">Changer</a>
@@ -53,9 +53,23 @@
 <script src="profil.js"></script>
 <script>
 
+const paramsPage = new URLSearchParams(window.location.search);
+const atelierFiltre = paramsPage.get('atelier');
+
+const TITRES_PAGE = {
+  boulangerie: '🏪 Casino Shop',
+  vente: '🐭 Clients réguliers',
+  patisserie: '👤 Clients réguliers'
+};
+if (atelierFiltre && TITRES_PAGE[atelierFiltre]) {
+  document.getElementById('titre-page').textContent = TITRES_PAGE[atelierFiltre];
+}
+
 async function chargerClientsReguliers() {
   const conteneur = document.getElementById('liste-clients-reguliers');
-  const { data: clients, error } = await supabaseClient.from('clients_reguliers').select('*').order('nom');
+  let requete = supabaseClient.from('clients_reguliers').select('*').order('nom');
+  if (atelierFiltre) requete = requete.eq('atelier', atelierFiltre);
+  const { data: clients, error } = await requete;
 
   if (error) { conteneur.innerHTML = `<p class="empty">Erreur : ${error.message}</p>`; return; }
   if (!clients || clients.length === 0) { conteneur.innerHTML = ''; return; }
@@ -89,6 +103,7 @@ async function chargerClientsReguliers() {
         <button onclick="ajouterLigneLibre('${client.id}')" style="border:none; background:none; color:var(--accent-dark); font-size:13px; text-decoration:underline; cursor:pointer; padding:0; margin-bottom:6px;">+ Ajouter une ligne</button>
         <button class="primary" onclick='enregistrerCommandeLibre(${JSON.stringify(client.id)}, ${JSON.stringify(client.nom)}, ${JSON.stringify(client.atelier)})'>Enregistrer la commande</button>
         <button class="lien-historique" onclick="basculerHistorique('${client.id}', '${client.nom.replace(/'/g, "\\'")}')">📊 Voir l'historique</button>
+        <button class="lien-historique" onclick="telechargerTotalMois('${client.nom.replace(/'/g, "\\'")}')">⬇️ Télécharger le total du mois</button>
         <div id="historique-${client.id}" style="display:none; margin-top:14px;"></div>
       `;
       conteneur.appendChild(carte);
@@ -111,10 +126,47 @@ async function chargerClientsReguliers() {
       `).join('')}
       <button class="primary" onclick='enregistrerCommandeDuMatin(${JSON.stringify(client.id)}, ${JSON.stringify(client.nom)}, ${JSON.stringify(client.atelier)})'>Enregistrer la commande de ce matin</button>
       <button class="lien-historique" onclick="basculerHistorique('${client.id}', '${client.nom.replace(/'/g, "\\'")}')">📊 Voir l'historique</button>
+      <button class="lien-historique" onclick="telechargerTotalMois('${client.nom.replace(/'/g, "\\'")}')">⬇️ Télécharger le total du mois</button>
       <div id="historique-${client.id}" style="display:none; margin-top:14px;"></div>
     `;
     conteneur.appendChild(carte);
   }
+}
+
+async function telechargerTotalMois(nomClient) {
+  const maintenant = new Date();
+  const premierJour = dateLocale(new Date(maintenant.getFullYear(), maintenant.getMonth(), 1));
+  const dernierJour = dateLocale(new Date(maintenant.getFullYear(), maintenant.getMonth() + 1, 0));
+
+  const { data: commandes, error } = await supabaseClient
+    .from('commandes')
+    .select('*')
+    .eq('client', nomClient)
+    .gte('date_retrait', premierJour)
+    .lte('date_retrait', dernierJour)
+    .order('date_retrait', { ascending: true });
+
+  if (error) { alert('Erreur : ' + error.message); return; }
+  if (!commandes || commandes.length === 0) { alert('Aucune commande ce mois-ci pour ' + nomClient + '.'); return; }
+
+  const totaux = {};
+  commandes.forEach(c => { totaux[c.produit] = (totaux[c.produit] || 0) + c.quantite; });
+
+  const nomMois = maintenant.toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' });
+
+  const lignes = [['Client', nomClient], ['Mois', nomMois], [''], ['Produit', 'Quantité totale']];
+  Object.keys(totaux).forEach(p => lignes.push([p, totaux[p]]));
+
+  const csv = lignes.map(l => l.map(champ => `"${String(champ).replace(/"/g, '""')}"`).join(';')).join('\n');
+  const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const lien = document.createElement('a');
+  lien.href = url;
+  lien.download = 'total_mois_' + nomClient.replace(/\s+/g, '_') + '_' + dateLocale().slice(0,7) + '.csv';
+  document.body.appendChild(lien);
+  lien.click();
+  document.body.removeChild(lien);
+  URL.revokeObjectURL(url);
 }
 
 function ajouterLigneLibre(clientId) {
