@@ -213,7 +213,7 @@ function afficherCommandes() {
         </div>
         <select class="statut-select" onchange="changerStatut('${c.id}', this.value)">
           <option value="a_faire" ${c.statut==='a_faire'?'selected':''}>À faire</option>
-          <option value="pret" ${c.statut==='pret'?'selected':''}>Prêt</option>
+          ${c.statut === 'pret' ? '<option value="pret" selected disabled>Prêt</option>' : ''}
           <option value="annule" ${c.statut==='annule'?'selected':''}>Annulée</option>
         </select>
       </div>

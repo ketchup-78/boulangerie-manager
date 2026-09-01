@@ -228,12 +228,11 @@ async function chargerCommandes() {
     .from('commandes')
     .select('*')
     .eq('date_retrait', dateChoisie)
-    .neq('statut', 'annule')
     .or(`atelier.eq.${atelier},atelier.is.null`)
     .order('heure_retrait', { ascending: true });
 
   if (!afficherTout) {
-    requete = requete.eq('statut', 'a_faire');
+    requete = requete.in('statut', ['a_faire', 'annule']);
   }
 
   const { data, error } = await requete;
@@ -247,10 +246,11 @@ async function chargerCommandes() {
   const estAujourdhui = dateChoisie === aujourdhui;
 
   conteneur.innerHTML = data.map(c => `
-    <div class="commande">
+    <div class="commande" style="${c.statut === 'annule' ? 'background:#fdeaea; border-radius:10px; padding:10px; margin-bottom:6px;' : ''}">
       <span>
         <strong>${c.client}</strong> — ${c.produit} (x${c.quantite})
-        <small>${c.heure_retrait ? 'Retrait ' + c.heure_retrait.slice(0,5) : 'Heure non précisée'}${c.notes ? ' · ' + c.notes : ''} · ${libelleStatutCommande(c.statut)}</small>
+        <small>${c.heure_retrait ? 'Retrait ' + c.heure_retrait.slice(0,5) : 'Heure non précisée'}${c.notes ? ' · ' + c.notes : ''}</small>
+        ${c.statut === 'annule' ? '<br><strong style="color:var(--danger);">✕ Annulée</strong>' : `<br><small>${libelleStatutCommande(c.statut)}</small>`}
       </span>
       ${estAujourdhui && c.statut === 'a_faire' ? `
         <button class="small" onclick="marquerPret('${c.id}', this)">Marquer prêt</button>` : ''}
