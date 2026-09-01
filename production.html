@@ -95,74 +95,83 @@ function afficherFormulaireProduction() {
   `).join('');
 }
 
-async function chargerProductionExistante() {
+async function obtenirTotalDuJour() {
   const aujourdhui = dateLocale();
-  const { data } = await supabaseClient
+  const { data, error } = await supabaseClient
     .from('production_jour')
     .select('*')
     .eq('date_production', aujourdhui)
     .eq('atelier', 'boulangerie');
 
-  (data || []).forEach(ligne => {
-    const input = document.getElementById('prod-' + ligne.produit.replace(/\s+/g, '_'));
-    if (input) input.value = ligne.quantite;
-  });
+  const totaux = {};
+  PRODUITS_BOULANGERIE.forEach(p => totaux[p.nom] = 0);
+  if (error || !data) return totaux;
+
+  data.forEach(l => { totaux[l.produit] = (totaux[l.produit] || 0) + parseFloat(l.quantite); });
+  return totaux;
 }
 
 async function enregistrerProduction() {
   const aujourdhui = dateLocale();
   const enregistre_par = window.profilActuel ? window.profilActuel.nom : null;
 
-  // On repart de zéro pour aujourd'hui pour éviter les doublons si on modifie
-  await supabaseClient.from('production_jour').delete().eq('date_production', aujourdhui).eq('atelier', 'boulangerie');
+  const lignes = PRODUITS_BOULANGERIE
+    .map(p => {
+      const input = document.getElementById('prod-' + p.nom.replace(/\s+/g, '_'));
+      return { produit: p.nom, unite: p.unite, quantite: parseFloat(input.value) || 0, date_production: aujourdhui, atelier: 'boulangerie', enregistre_par };
+    })
+    .filter(l => l.quantite > 0);
 
-  const lignes = PRODUITS_BOULANGERIE.map(p => {
-    const input = document.getElementById('prod-' + p.nom.replace(/\s+/g, '_'));
-    return {
-      produit: p.nom,
-      unite: p.unite,
-      quantite: parseFloat(input.value) || 0,
-      date_production: aujourdhui,
-      atelier: 'boulangerie',
-      enregistre_par
-    };
-  });
+  if (lignes.length === 0) {
+    alert('Merci de renseigner au moins une quantité.');
+    return;
+  }
 
   const { error } = await supabaseClient.from('production_jour').insert(lignes);
   if (error) { alert('Erreur : ' + error.message); return; }
 
-  alert('Production du jour enregistrée.');
+  PRODUITS_BOULANGERIE.forEach(p => {
+    const input = document.getElementById('prod-' + p.nom.replace(/\s+/g, '_'));
+    if (input) input.value = '';
+  });
+
+  alert('Ajouté au total de la journée.');
+
+  const zoneDoc = document.getElementById('document-production');
+  if (zoneDoc.style.display === 'block') afficherDocument();
 }
 
-function basculerDocument() {
+async function basculerDocument() {
   const zone = document.getElementById('document-production');
   if (zone.style.display === 'block') { zone.style.display = 'none'; return; }
-
-  const aujourdhui = dateLocale();
-  const [an, mois, jour] = aujourdhui.split('-');
-
-  const lignesDoc = PRODUITS_BOULANGERIE.map(p => {
-    const input = document.getElementById('prod-' + p.nom.replace(/\s+/g, '_'));
-    const quantite = parseFloat(input.value) || 0;
-    return `<div class="ligne-doc"><span>${p.nom}</span><strong>${quantite} ${p.unite}</strong></div>`;
-  }).join('');
-
-  zone.innerHTML = `
-    <h3>Production du ${jour}/${mois}/${an}</h3>
-    <p style="opacity:.6; font-size:13px; margin-top:0;">Boulangerie</p>
-    ${lignesDoc}
-  `;
+  await afficherDocument();
   zone.style.display = 'block';
 }
 
-function telechargerProductionCSV() {
+async function afficherDocument() {
+  const zone = document.getElementById('document-production');
+  const totaux = await obtenirTotalDuJour();
   const aujourdhui = dateLocale();
+  const [an, mois, jour] = aujourdhui.split('-');
+
+  const lignesDoc = PRODUITS_BOULANGERIE.map(p => `
+    <div class="ligne-doc"><span>${p.nom}</span><strong>${totaux[p.nom]} ${p.unite}</strong></div>
+  `).join('');
+
+  zone.innerHTML = `
+    <h3>Production du ${jour}/${mois}/${an}</h3>
+    <p style="opacity:.6; font-size:13px; margin-top:0;">Boulangerie — total cumulé de la journée</p>
+    ${lignesDoc}
+  `;
+}
+
+async function telechargerProductionCSV() {
+  const aujourdhui = dateLocale();
+  const totaux = await obtenirTotalDuJour();
   const lignes = [['Date', 'Produit', 'Quantité', 'Unité']];
 
   PRODUITS_BOULANGERIE.forEach(p => {
-    const input = document.getElementById('prod-' + p.nom.replace(/\s+/g, '_'));
-    const quantite = parseFloat(input.value) || 0;
-    lignes.push([aujourdhui.split('-').reverse().join('/'), p.nom, quantite, p.unite]);
+    lignes.push([aujourdhui.split('-').reverse().join('/'), p.nom, totaux[p.nom], p.unite]);
   });
 
   const csv = lignes.map(l => l.map(champ => `"${String(champ).replace(/"/g, '""')}"`).join(';')).join('\n');
@@ -180,7 +189,6 @@ function telechargerProductionCSV() {
 initProfil((profil) => {
   window.profilActuel = profil;
   afficherFormulaireProduction();
-  chargerProductionExistante();
 });
 
 </script>
