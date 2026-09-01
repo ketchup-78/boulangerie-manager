@@ -72,6 +72,10 @@
       <span style="font-size:24px;">🏪</span>
       <span>Casino Shop</span>
     </a>
+    <a href="production.html" id="lien-production" class="raccourci" style="display:none;">
+      <span style="font-size:24px;">🏭</span>
+      <span>Production</span>
+    </a>
   </div>
   <div class="card" id="card-ajout-tache">
     <h2>Ajouter une tâche</h2>
@@ -122,6 +126,10 @@ document.getElementById('titre-page').textContent =
   atelier === 'patisserie' ? '🧁 Labo — Pâtisserie' : '🍞 Labo — Boulangerie';
 
 document.getElementById('lien-recettes').href = 'recettes.html?atelier=' + atelier;
+
+if (atelier === 'boulangerie') {
+  document.getElementById('lien-production').style.display = 'flex';
+}
 
 // ---------- TÂCHES ----------
 async function chargerTaches() {

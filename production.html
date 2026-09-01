@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Production du jour — Boulangerie Manager</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:wght@600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+  :root{
+    --bg:#FAF7F2; --surface:#FFFFFF; --ink:#241A14;
+    --accent:#C68A2E; --accent-dark:#9C6B1E; --radius:18px;
+  }
+  *{box-sizing:border-box;}
+  body{font-family:'Inter',Arial,sans-serif; margin:0; background:var(--bg); color:var(--ink);}
+  header{background:var(--ink); color:#fff; padding:22px 20px; display:flex; align-items:center; justify-content:space-between;}
+  header h1{margin:0; font-family:'Fraunces',serif; font-size:22px;}
+  header a{color:#fff; opacity:.7; text-decoration:none; font-size:13px;}
+  main{padding:20px; max-width:700px; margin:auto;}
+  .card{background:var(--surface); border-radius:var(--radius); padding:20px; margin-bottom:16px; box-shadow:0 2px 8px rgba(0,0,0,.06);}
+  .card h2{margin-top:0; font-family:'Fraunces',serif; font-size:19px;}
+  .date-jour{font-size:14px; opacity:.6; margin:-8px 0 16px;}
+  .ligne-produit{display:flex; align-items:center; gap:10px; margin-bottom:10px;}
+  .ligne-produit span{flex:1;}
+  .ligne-produit input{width:90px; text-align:center; padding:12px; border-radius:10px; border:1px solid #ddd; font-size:15px;}
+  button.primary{
+    margin-top:10px; width:100%; border:none; background:var(--accent); color:#241A14;
+    padding:14px; border-radius:12px; font-size:16px; font-weight:600;
+  }
+  button.secondaire{
+    margin-top:10px; width:100%; border:1px solid #ddd; background:#fff; color:var(--ink);
+    padding:14px; border-radius:12px; font-size:15px; font-weight:600;
+  }
+  button.primary:active, button.secondaire:active{transform:scale(0.98);}
+  .document{border:1px solid #eee; border-radius:12px; padding:18px; margin-top:16px;}
+  .document h3{font-family:'Fraunces',serif; margin:0 0 4px;}
+  .document .ligne-doc{display:flex; justify-content:space-between; padding:6px 0; border-bottom:1px solid #f0ebe3; font-size:14px;}
+  .document .ligne-doc:last-child{border-bottom:none;}
+</style>
+</head>
+<body>
+
+<header>
+  <h1>🏭 Production du jour</h1>
+  <div style="text-align:right;">
+    <span id="bandeau-profil" style="display:block;font-size:12px;opacity:.8;"></span>
+    <a href="index.html">← Accueil</a> · <a href="#" onclick="effacerProfil()">Changer</a>
+  </div>
+</header>
+
+<main>
+  <div class="card">
+    <h2>Quantités du jour</h2>
+    <div class="date-jour" id="date-affichee"></div>
+    <div id="liste-produits-production"></div>
+    <button class="primary" onclick="enregistrerProduction()">Enregistrer</button>
+    <button class="secondaire" onclick="basculerDocument()">📄 Voir le document</button>
+    <button class="secondaire" onclick="telechargerProductionCSV()">⬇️ Télécharger</button>
+    <div class="document" id="document-production" style="display:none;"></div>
+  </div>
+</main>
+
+<script src="supabase-config.js"></script>
+<script src="profil.js"></script>
+<script>
+
+const PRODUITS_BOULANGERIE = [
+  { nom: 'Traditions', unite: 'pièce' },
+  { nom: 'Baguettes', unite: 'pièce' },
+  { nom: 'Graines', unite: 'kg' },
+  { nom: 'Croissant', unite: 'kg' },
+  { nom: 'Pain au chocolat', unite: 'kg' },
+  { nom: 'Bûcheron', unite: 'kg' },
+  { nom: 'Complet', unite: 'kg' },
+  { nom: 'Pain au raisin', unite: 'kg' }
+];
+
+function afficherFormulaireProduction() {
+  const aujourdhui = dateLocale();
+  const [an, mois, jour] = aujourdhui.split('-');
+  document.getElementById('date-affichee').textContent = `${jour}/${mois}/${an}`;
+
+  document.getElementById('liste-produits-production').innerHTML = PRODUITS_BOULANGERIE.map(p => `
+    <div class="ligne-produit">
+      <span>${p.nom} <small style="opacity:.5;">(${p.unite})</small></span>
+      <input type="number" min="0" step="${p.unite === 'kg' ? '0.1' : '1'}" id="prod-${p.nom.replace(/\s+/g, '_')}" placeholder="0">
+    </div>
+  `).join('');
+}
+
+async function chargerProductionExistante() {
+  const aujourdhui = dateLocale();
+  const { data } = await supabaseClient
+    .from('production_jour')
+    .select('*')
+    .eq('date_production', aujourdhui)
+    .eq('atelier', 'boulangerie');
+
+  (data || []).forEach(ligne => {
+    const input = document.getElementById('prod-' + ligne.produit.replace(/\s+/g, '_'));
+    if (input) input.value = ligne.quantite;
+  });
+}
+
+async function enregistrerProduction() {
+  const aujourdhui = dateLocale();
+  const enregistre_par = window.profilActuel ? window.profilActuel.nom : null;
+
+  // On repart de zéro pour aujourd'hui pour éviter les doublons si on modifie
+  await supabaseClient.from('production_jour').delete().eq('date_production', aujourdhui).eq('atelier', 'boulangerie');
+
+  const lignes = PRODUITS_BOULANGERIE.map(p => {
+    const input = document.getElementById('prod-' + p.nom.replace(/\s+/g, '_'));
+    return {
+      produit: p.nom,
+      unite: p.unite,
+      quantite: parseFloat(input.value) || 0,
+      date_production: aujourdhui,
+      atelier: 'boulangerie',
+      enregistre_par
+    };
+  });
+
+  const { error } = await supabaseClient.from('production_jour').insert(lignes);
+  if (error) { alert('Erreur : ' + error.message); return; }
+
+  alert('Production du jour enregistrée.');
+}
+
+function basculerDocument() {
+  const zone = document.getElementById('document-production');
+  if (zone.style.display === 'block') { zone.style.display = 'none'; return; }
+
+  const aujourdhui = dateLocale();
+  const [an, mois, jour] = aujourdhui.split('-');
+
+  const lignesDoc = PRODUITS_BOULANGERIE.map(p => {
+    const input = document.getElementById('prod-' + p.nom.replace(/\s+/g, '_'));
+    const quantite = parseFloat(input.value) || 0;
+    return `<div class="ligne-doc"><span>${p.nom}</span><strong>${quantite} ${p.unite}</strong></div>`;
+  }).join('');
+
+  zone.innerHTML = `
+    <h3>Production du ${jour}/${mois}/${an}</h3>
+    <p style="opacity:.6; font-size:13px; margin-top:0;">Boulangerie</p>
+    ${lignesDoc}
+  `;
+  zone.style.display = 'block';
+}
+
+function telechargerProductionCSV() {
+  const aujourdhui = dateLocale();
+  const lignes = [['Date', 'Produit', 'Quantité', 'Unité']];
+
+  PRODUITS_BOULANGERIE.forEach(p => {
+    const input = document.getElementById('prod-' + p.nom.replace(/\s+/g, '_'));
+    const quantite = parseFloat(input.value) || 0;
+    lignes.push([aujourdhui.split('-').reverse().join('/'), p.nom, quantite, p.unite]);
+  });
+
+  const csv = lignes.map(l => l.map(champ => `"${String(champ).replace(/"/g, '""')}"`).join(';')).join('\n');
+  const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const lien = document.createElement('a');
+  lien.href = url;
+  lien.download = 'production_boulangerie_' + aujourdhui + '.csv';
+  document.body.appendChild(lien);
+  lien.click();
+  document.body.removeChild(lien);
+  URL.revokeObjectURL(url);
+}
+
+initProfil((profil) => {
+  window.profilActuel = profil;
+  afficherFormulaireProduction();
+  chargerProductionExistante();
+});
+
+</script>
+</body>
+</html>
