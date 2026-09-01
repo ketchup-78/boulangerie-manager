@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Relevé des températures — Boulangerie Manager</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:wght@600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+  :root{
+    --bg:#FAF7F2; --surface:#FFFFFF; --ink:#241A14;
+    --accent:#C68A2E; --accent-dark:#9C6B1E; --danger:#B00020; --radius:18px;
+  }
+  *{box-sizing:border-box;}
+  body{font-family:'Inter',Arial,sans-serif; margin:0; background:var(--bg); color:var(--ink);}
+  header{background:var(--ink); color:#fff; padding:22px 20px;}
+  header h1{margin:0; font-family:'Fraunces',serif; font-size:22px;}
+  main{padding:20px; max-width:700px; margin:auto;}
+  .card{background:var(--surface); border-radius:var(--radius); padding:20px; margin-bottom:16px; box-shadow:0 2px 8px rgba(0,0,0,.06);}
+  .card h2{margin-top:0; font-family:'Fraunces',serif; font-size:19px;}
+  input{padding:10px; border-radius:8px; border:1px solid #ddd; font-size:15px; font-family:inherit; width:100%;}
+  button.primary{
+    margin-top:16px; width:100%; border:none; background:var(--accent); color:#241A14;
+    padding:14px; border-radius:12px; font-size:16px; font-weight:600;
+  }
+  button.primary:active{transform:scale(0.98);}
+  button.primary:disabled{opacity:.5;}
+  table{width:100%; border-collapse:collapse; margin-top:6px;}
+  th{font-size:11px; text-transform:uppercase; opacity:.5; text-align:center; padding:6px 4px; font-weight:600;}
+  th:first-child{text-align:left;}
+  td{padding:6px 4px; vertical-align:middle;}
+  td:first-child{font-size:14px; padding-right:8px;}
+  td input{text-align:center; padding:10px 4px;}
+  .releve{display:flex; gap:14px; align-items:center; padding:12px 0; border-bottom:1px solid #eee;}
+  .releve:last-child{border-bottom:none;}
+  .releve small{opacity:.6;}
+  .empty{opacity:.5; font-size:14px; padding:10px 0;}
+</style>
+</head>
+<body>
+
+<header style="display:flex; align-items:center; justify-content:space-between; gap:10px;">
+  <a href="index.html" title="Accueil" style="display:inline-flex; align-items:center; justify-content:center; flex-shrink:0; width:52px; height:52px; border-radius:50%; background:var(--accent); color:#241A14; text-decoration:none; font-size:24px;">🏠</a>
+  <h1 id="titre-page" style="margin:0; text-align:center; flex:1;">🌡️ Relevé des températures</h1>
+  <div style="display:flex; flex-direction:column; align-items:center; flex-shrink:0;">
+    <button onclick="effacerProfil()" title="Changer de profil" style="width:52px; height:52px; border-radius:50%; border:none; background:var(--accent); color:#241A14; font-size:26px; cursor:pointer; padding:0;">👨‍🍳</button>
+    <span id="bandeau-profil" style="font-size:10px; opacity:.8; margin-top:3px; text-align:center;"></span>
+  </div>
+</header>
+
+<main>
+  <div class="card">
+    <h2>Relevé du jour</h2>
+    <table>
+      <thead>
+        <tr><th>Équipement</th><th>Matin</th><th>Midi</th><th>Soir</th></tr>
+      </thead>
+      <tbody id="tableau-releves"></tbody>
+    </table>
+    <button class="primary" id="btn-enregistrer" onclick="enregistrerReleves()">Enregistrer</button>
+  </div>
+
+  <div class="card">
+    <h2>Historique (3 derniers mois)</h2>
+    <div id="liste-releves"><p class="empty">Chargement...</p></div>
+    <button class="primary" onclick="telechargerCSV()">⬇️ Télécharger la liste (Excel)</button>
+  </div>
+</main>
+
+<script src="supabase-config.js?v=6"></script>
+<script src="profil.js?v=6"></script>
+<script>
+
+const params = new URLSearchParams(window.location.search);
+const atelier = params.get('atelier') === 'patisserie' ? 'patisserie' : 'boulangerie';
+
+const EQUIPEMENTS = {
+  patisserie: [
+    'Chambre négatif -18°C',
+    'Tour laminoirs',
+    'Tour chefcut',
+    'Tour Guillaume',
+    'Congélateur Guillaume',
+    'Congélateur laminoir',
+    'Frigo (devant les fours)'
+  ],
+  boulangerie: [
+    'Chambre froide',
+    'Chambre de pousse 1',
+    'Chambre de pousse 2'
+  ]
+};
+
+const MOMENTS = ['matin', 'midi', 'soir'];
+
+function idCase(equipement, moment) {
+  return 'temp-' + equipement.replace(/[^a-zA-Z0-9]/g, '_') + '-' + moment;
+}
+
+function afficherTableauDuJour() {
+  const corps = document.getElementById('tableau-releves');
+  corps.innerHTML = EQUIPEMENTS[atelier].map(eq => `
+    <tr>
+      <td>${eq}</td>
+      ${MOMENTS.map(m => `<td><input type="number" step="0.1" id="${idCase(eq, m)}"></td>`).join('')}
+    </tr>
+  `).join('');
+}
+
+async function chargerReleveDuJour() {
+  const aujourdhui = dateLocale();
+  const { data } = await supabaseClient
+    .from('temperatures')
+    .select('*')
+    .eq('atelier', atelier)
+    .eq('date_releve', aujourdhui);
+
+  (data || []).forEach(r => {
+    const input = document.getElementById(idCase(r.equipement, r.moment));
+    if (input) input.value = r.temperature;
+  });
+}
+
+async function enregistrerReleves() {
+  const bouton = document.getElementById('btn-enregistrer');
+  const aujourdhui = dateLocale();
+  const enregistre_par = window.profilActuel ? window.profilActuel.nom : null;
+
+  const lignes = [];
+  EQUIPEMENTS[atelier].forEach(eq => {
+    MOMENTS.forEach(m => {
+      const input = document.getElementById(idCase(eq, m));
+      if (input.value !== '') {
+        lignes.push({
+          equipement: eq, moment: m, temperature: parseFloat(input.value),
+          atelier, date_releve: aujourdhui, enregistre_par
+        });
+      }
+    });
+  });
+
+  if (lignes.length === 0) {
+    alert('Merci de renseigner au moins une température.');
+    return;
+  }
+
+  bouton.disabled = true;
+  bouton.textContent = 'Enregistrement...';
+
+  const { error } = await supabaseClient
+    .from('temperatures')
+    .upsert(lignes, { onConflict: 'equipement,moment,atelier,date_releve' });
+
+  bouton.disabled = false;
+  bouton.textContent = 'Enregistrer';
+
+  if (error) { alert('Erreur : ' + error.message); return; }
+
+  alert('Relevé enregistré.');
+  chargerReleves();
+}
+
+function formaterDateAffichage(dateStr) {
+  const [an, mois, jour] = dateStr.split('-');
+  return `${jour}/${mois}/${an}`;
+}
+
+const LIBELLES_MOMENT = { matin: 'Matin', midi: 'Midi', soir: 'Soir' };
+
+let derniereListeReleves = [];
+
+async function chargerReleves() {
+  const conteneur = document.getElementById('liste-releves');
+  const troisMoisAvant = new Date();
+  troisMoisAvant.setMonth(troisMoisAvant.getMonth() - 3);
+  const dateLimite = dateLocale(troisMoisAvant);
+
+  const { data, error } = await supabaseClient
+    .from('temperatures')
+    .select('*')
+    .eq('atelier', atelier)
+    .gte('date_releve', dateLimite)
+    .order('date_releve', { ascending: false });
+
+  if (error) { conteneur.innerHTML = `<p class="empty">Erreur : ${error.message}</p>`; return; }
+
+  derniereListeReleves = data || [];
+
+  if (derniereListeReleves.length === 0) { conteneur.innerHTML = `<p class="empty">Aucun relevé sur les 3 derniers mois.</p>`; return; }
+
+  conteneur.innerHTML = derniereListeReleves.map(r => `
+    <div class="releve">
+      <div style="width:44px; height:44px; border-radius:10px; background:#eee; display:flex; align-items:center; justify-content:center; font-size:18px; flex-shrink:0;">🌡️</div>
+      <div style="flex:1;">
+        <strong>${r.equipement}</strong> — ${r.temperature}°C
+        <small>(${LIBELLES_MOMENT[r.moment] || ''})</small><br>
+        <small>${formaterDateAffichage(r.date_releve)}${r.enregistre_par ? ' · ' + r.enregistre_par : ''}</small>
+      </div>
+    </div>
+  `).join('');
+}
+
+function telechargerCSV() {
+  if (!derniereListeReleves.length) {
+    alert('Aucun relevé à télécharger.');
+    return;
+  }
+
+  const lignes = [['Équipement', 'Moment', 'Température (°C)', 'Date', 'Enregistré par']];
+  derniereListeReleves.forEach(r => {
+    lignes.push([r.equipement, LIBELLES_MOMENT[r.moment] || '', r.temperature, formaterDateAffichage(r.date_releve), r.enregistre_par || '']);
+  });
+
+  const csv = lignes.map(l => l.map(champ => `"${String(champ).replace(/"/g, '""')}"`).join(';')).join('\n');
+  const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const lien = document.createElement('a');
+  lien.href = url;
+  lien.download = 'temperatures_' + atelier + '_' + dateLocale() + '.csv';
+  document.body.appendChild(lien);
+  lien.click();
+  document.body.removeChild(lien);
+  URL.revokeObjectURL(url);
+}
+
+initProfil((profil) => {
+  window.profilActuel = profil;
+  afficherTableauDuJour();
+  chargerReleveDuJour();
+  chargerReleves();
+
+  supabaseClient
+    .channel('temperatures-' + atelier)
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'temperatures' }, chargerReleves)
+    .subscribe();
+}, atelier);
+
+</script>
+</body>
+</html>
