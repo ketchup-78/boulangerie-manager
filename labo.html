@@ -68,7 +68,7 @@
       <span style="font-size:24px;">🏷️</span>
       <span>Réceptions</span>
     </a>
-    <a href="client-fidele.html" class="raccourci">
+    <a href="client-fidele.html" id="lien-casino" class="raccourci" style="display:none;">
       <span style="font-size:24px;">🏪</span>
       <span>Casino Shop</span>
     </a>
@@ -129,6 +129,7 @@ document.getElementById('lien-recettes').href = 'recettes.html?atelier=' + ateli
 
 if (atelier === 'boulangerie') {
   document.getElementById('lien-production').style.display = 'flex';
+  document.getElementById('lien-casino').style.display = 'flex';
 }
 
 // ---------- TÂCHES ----------
