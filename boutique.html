@@ -108,6 +108,11 @@
 
   <div class="card">
     <h2>📋 Commandes à venir</h2>
+    <div style="display:flex; align-items:center; gap:8px; margin-bottom:10px;">
+      <button onclick="changerSemaineCommandes(-1)" style="border:none; background:#f1e4c8; border-radius:8px; padding:8px 14px; font-size:16px; color:#241A14;">◀</button>
+      <span id="label-semaine-commandes" style="flex:1; text-align:center; font-size:13px; opacity:.7;"></span>
+      <button onclick="changerSemaineCommandes(1)" style="border:none; background:#f1e4c8; border-radius:8px; padding:8px 14px; font-size:16px; color:#241A14;">▶</button>
+    </div>
     <div id="liste-commandes">
       <p class="empty">Chargement...</p>
     </div>
@@ -132,6 +137,7 @@ let derniereListeCommandesSemaine = [];
 let joursSemaineCommandes = [];
 let datesSemaineCommandes = [];
 let jourSelectionneCommandes = null;
+let decalageSemaineCommandes = 0;
 
 async function chargerCommandes() {
   const aujourdhui = new Date();
@@ -139,10 +145,14 @@ async function chargerCommandes() {
   datesSemaineCommandes = [];
   for (let i = 0; i < 7; i++) {
     const d = new Date(aujourdhui);
-    d.setDate(aujourdhui.getDate() + i);
+    d.setDate(aujourdhui.getDate() + decalageSemaineCommandes * 7 + i);
     datesSemaineCommandes.push(d);
     joursSemaineCommandes.push(dateLocale(d));
   }
+
+  document.getElementById('label-semaine-commandes').textContent =
+    joursSemaineCommandes[0].slice(8,10) + '/' + joursSemaineCommandes[0].slice(5,7) +
+    ' - ' + joursSemaineCommandes[6].slice(8,10) + '/' + joursSemaineCommandes[6].slice(5,7);
 
   const { data, error } = await supabaseClient
     .from('commandes')
@@ -159,8 +169,13 @@ async function chargerCommandes() {
   }
 
   derniereListeCommandesSemaine = data || [];
-  if (!jourSelectionneCommandes) jourSelectionneCommandes = joursSemaineCommandes[0];
+  jourSelectionneCommandes = joursSemaineCommandes[0];
   afficherCommandes();
+}
+
+function changerSemaineCommandes(direction) {
+  decalageSemaineCommandes = Math.max(0, decalageSemaineCommandes + direction);
+  chargerCommandes();
 }
 
 function afficherCommandes() {
