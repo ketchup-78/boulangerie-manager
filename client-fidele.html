@@ -137,6 +137,8 @@ async function enregistrerCommandeDuMatin(clientId, nomClient, atelier) {
   });
 }
 
+let historiqueParClient = {};
+
 async function basculerHistorique(clientId, nomClient) {
   const zone = document.getElementById('historique-' + clientId);
 
@@ -145,8 +147,8 @@ async function basculerHistorique(clientId, nomClient) {
     return;
   }
 
-  zone.innerHTML = '<p class="empty">Chargement...</p>';
   zone.style.display = 'block';
+  zone.innerHTML = '<p class="empty">Chargement...</p>';
 
   const { data: commandes, error } = await supabaseClient
     .from('commandes')
@@ -165,21 +167,69 @@ async function basculerHistorique(clientId, nomClient) {
     totaux[c.produit] = (totaux[c.produit] || 0) + c.quantite;
   });
 
+  historiqueParClient[clientId] = { parJour, totaux, jourOuvert: null, nomClient };
+  afficherHistorique(clientId);
+}
+
+function afficherHistorique(clientId) {
+  const zone = document.getElementById('historique-' + clientId);
+  const { parJour, totaux, jourOuvert } = historiqueParClient[clientId];
+
   let html = '<h4 style="margin:0 0 8px; font-size:13px; opacity:.6; text-transform:uppercase;">Total cumulé</h4>';
   html += Object.keys(totaux).map(p => `
     <div style="display:flex; justify-content:space-between; font-size:14px; padding:4px 0;">
       <span>${p}</span><strong>${totaux[p]}</strong>
     </div>`).join('');
 
-  html += '<h4 style="margin:16px 0 8px; font-size:13px; opacity:.6; text-transform:uppercase;">Détail par jour</h4>';
-  html += Object.keys(parJour).sort().reverse().map(jour => `
-    <div style="margin-bottom:10px;">
-      <strong style="font-size:13px;">${jour.slice(8,10)}/${jour.slice(5,7)}/${jour.slice(0,4)}</strong>
-      ${parJour[jour].map(c => `<div style="font-size:13px; opacity:.8; padding-left:10px;">${c.produit} × ${c.quantite}</div>`).join('')}
-    </div>
-  `).join('');
+  html += '<h4 style="margin:16px 0 8px; font-size:13px; opacity:.6; text-transform:uppercase;">Choisir un jour</h4>';
+
+  html += Object.keys(parJour).sort().reverse().map(jour => {
+    const actif = jourOuvert === jour;
+    const libelle = jour.slice(8,10) + '/' + jour.slice(5,7) + '/' + jour.slice(0,4);
+    let bloc = `
+      <div onclick="ouvrirJourHistorique('${clientId}', '${jour}')" style="cursor:pointer; padding:10px 0; border-bottom:1px solid #eee; display:flex; justify-content:space-between; align-items:center;">
+        <strong style="font-size:14px;">${libelle}</strong>
+        <span style="font-size:13px; opacity:.5;">${actif ? '▲' : '▼'}</span>
+      </div>`;
+    if (actif) {
+      bloc += parJour[jour].map(c => `<div style="font-size:13px; opacity:.8; padding:6px 0 6px 10px;">${c.produit} × ${c.quantite}</div>`).join('');
+    }
+    return bloc;
+  }).join('');
+
+  html += `<button class="primary" onclick="telechargerHistoriqueCSV('${clientId}')">⬇️ Télécharger l'historique (Excel)</button>`;
 
   zone.innerHTML = html;
+}
+
+function telechargerHistoriqueCSV(clientId) {
+  const { parJour, nomClient } = historiqueParClient[clientId];
+  if (!parJour) { alert('Aucun historique à télécharger.'); return; }
+
+  const lignes = [['Date', 'Produit', 'Quantité']];
+  Object.keys(parJour).sort().forEach(jour => {
+    const libelle = jour.slice(8,10) + '/' + jour.slice(5,7) + '/' + jour.slice(0,4);
+    parJour[jour].forEach(c => {
+      lignes.push([libelle, c.produit, c.quantite]);
+    });
+  });
+
+  const csv = lignes.map(l => l.map(champ => `"${String(champ).replace(/"/g, '""')}"`).join(';')).join('\n');
+  const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const lien = document.createElement('a');
+  lien.href = url;
+  lien.download = 'historique_' + nomClient.replace(/\s+/g, '_') + '_' + dateLocale() + '.csv';
+  document.body.appendChild(lien);
+  lien.click();
+  document.body.removeChild(lien);
+  URL.revokeObjectURL(url);
+}
+
+function ouvrirJourHistorique(clientId, jour) {
+  const etat = historiqueParClient[clientId];
+  etat.jourOuvert = (etat.jourOuvert === jour) ? null : jour;
+  afficherHistorique(clientId);
 }
 
 async function creerClientRegulier() {
