@@ -69,10 +69,20 @@ async function chargerClientsReguliers() {
       .eq('client_id', client.id)
       .order('created_at', { ascending: true });
 
+    const emoji = client.atelier === 'patisserie' ? '🧁' : (client.atelier === 'vente' ? '🛎️' : '🍞');
+    const accesInterdit = client.reserve_chef && (!window.profilActuel || window.profilActuel.role !== 'chef');
+
     const carte = document.createElement('div');
     carte.className = 'card';
+
+    if (accesInterdit) {
+      carte.innerHTML = `<h2>${emoji} ${client.nom}</h2><p class="empty">Réservé au chef.</p>`;
+      conteneur.appendChild(carte);
+      continue;
+    }
+
     carte.innerHTML = `
-      <h2>${client.atelier === 'patisserie' ? '🧁' : '🍞'} ${client.nom}</h2>
+      <h2>${emoji} ${client.nom}</h2>
       ${(produits || []).length === 0 ? '<p class="empty">Aucun produit enregistré.</p>' : (produits || []).map(p => `
         <div class="ligne-produit">
           <span>${p.produit}${p.unite ? ' <small style="opacity:.5;">(' + p.unite + ')</small>' : ''}</span>
@@ -241,16 +251,8 @@ async function creerClientRegulier() {
   chargerClientsReguliers();
 }
 
-// Réservé au chef
 initProfil((profil) => {
   window.profilActuel = profil;
-
-  if (profil.role !== 'chef') {
-    document.getElementById('zone-clients').innerHTML =
-      '<div class="card"><p class="empty">Cette page est réservée au chef.</p></div>';
-    return;
-  }
-
   chargerClientsReguliers();
 });
 
