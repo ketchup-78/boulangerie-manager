@@ -69,6 +69,10 @@
       <span style="font-size:24px;">🏷️</span>
       <span>Réceptions</span>
     </a>
+    <a href="#" id="lien-temperatures" class="raccourci">
+      <span style="font-size:24px;">🌡️</span>
+      <span>Relevé des températures</span>
+    </a>
     <a href="client-fidele.html?atelier=boulangerie" id="lien-casino" class="raccourci" style="display:none;">
       <span style="font-size:24px;">🏪</span>
       <span>Casino Shop</span>
@@ -116,8 +120,8 @@
   </div>
 </main>
 
-<script src="supabase-config.js?v=5"></script>
-<script src="profil.js?v=5"></script>
+<script src="supabase-config.js?v=6"></script>
+<script src="profil.js?v=6"></script>
 <script>
 
 const params = new URLSearchParams(window.location.search);
@@ -127,6 +131,7 @@ document.getElementById('titre-page').textContent =
   atelier === 'patisserie' ? '🧁 Labo — Pâtisserie' : '🍞 Labo — Boulangerie';
 
 document.getElementById('lien-recettes').href = 'recettes.html?atelier=' + atelier;
+document.getElementById('lien-temperatures').href = 'temperatures.html?atelier=' + atelier;
 
 if (atelier === 'boulangerie') {
   document.getElementById('lien-production').style.display = 'flex';
