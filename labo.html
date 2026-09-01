@@ -40,6 +40,12 @@
   .alert{color:var(--danger); font-weight:600; font-size:14px;}
   .soon{color:var(--accent-dark); font-weight:600; font-size:14px;}
   .empty{opacity:.5; font-size:14px; padding:10px 0;}
+  .raccourci{
+    flex:1; background:var(--surface); border-radius:14px; padding:14px 6px;
+    text-decoration:none; color:var(--ink); text-align:center; box-shadow:0 2px 8px rgba(0,0,0,.06);
+    display:flex; flex-direction:column; align-items:center; gap:6px; font-size:13px; font-weight:600;
+  }
+  .raccourci:active{transform:scale(0.97);}
 </style>
 </head>
 <body>
@@ -48,15 +54,25 @@
   <h1 id="titre-page">🍞 Labo</h1>
   <div style="text-align:right;">
     <span id="bandeau-profil" style="display:block;font-size:12px;opacity:.8;"></span>
-    <a href="index.html">← Accueil</a> ·
-    <a href="#" id="lien-recettes">📖 Recettes</a> ·
-    <a href="reception.html">🏷️ Réceptions</a> ·
-    <a href="client-fidele.html">🏪 Casino Shop</a> ·
-    <a href="#" onclick="effacerProfil()">Changer</a>
+    <a href="index.html">← Accueil</a> · <a href="#" onclick="effacerProfil()">Changer</a>
   </div>
 </header>
 
 <main>
+  <div style="display:flex; gap:10px; margin-bottom:16px;">
+    <a href="#" id="lien-recettes" class="raccourci">
+      <span style="font-size:24px;">📖</span>
+      <span>Recettes</span>
+    </a>
+    <a href="reception.html" class="raccourci">
+      <span style="font-size:24px;">🏷️</span>
+      <span>Réceptions</span>
+    </a>
+    <a href="client-fidele.html" class="raccourci">
+      <span style="font-size:24px;">🏪</span>
+      <span>Casino Shop</span>
+    </a>
+  </div>
   <div class="card" id="card-ajout-tache">
     <h2>Ajouter une tâche</h2>
     <label>Description</label>
