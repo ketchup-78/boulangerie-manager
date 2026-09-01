@@ -124,6 +124,8 @@ async function chargerClientsReguliers() {
           <input type="number" min="0" step="${p.unite === 'kg' ? '0.1' : '1'}" id="qte-${p.id}" placeholder="0">
         </div>
       `).join('')}
+      <div id="autres-produits-${client.id}"></div>
+      <button onclick="ajouterAutreProduit('${client.id}')" style="border:none; background:none; color:var(--accent-dark); font-size:13px; text-decoration:underline; cursor:pointer; padding:0; margin-bottom:6px;">+ Autre produit</button>
       <button class="primary" onclick='enregistrerCommandeDuMatin(${JSON.stringify(client.id)}, ${JSON.stringify(client.nom)}, ${JSON.stringify(client.atelier)})'>Enregistrer la commande de ce matin</button>
       <button class="lien-historique" onclick="basculerHistorique('${client.id}', '${client.nom.replace(/'/g, "\\'")}')">📊 Voir l'historique</button>
       <button class="lien-historique" onclick="telechargerTotalMois('${client.nom.replace(/'/g, "\\'")}')">⬇️ Télécharger le total du mois</button>
@@ -210,6 +212,17 @@ async function enregistrerCommandeLibre(clientId, nomClient, atelier) {
   champsQuantites.forEach(input => input.value = '');
 }
 
+function ajouterAutreProduit(clientId) {
+  const conteneur = document.getElementById('autres-produits-' + clientId);
+  const ligne = document.createElement('div');
+  ligne.className = 'ligne-produit';
+  ligne.innerHTML = `
+    <input type="text" placeholder="Produit" class="autre-produit" style="flex:2;">
+    <input type="number" min="0" placeholder="Qté" class="autre-quantite">
+  `;
+  conteneur.appendChild(ligne);
+}
+
 async function enregistrerCommandeDuMatin(clientId, nomClient, atelier) {
   const { data: produits } = await supabaseClient.from('clients_reguliers_produits').select('*').eq('client_id', clientId);
   const auteur = window.profilActuel ? window.profilActuel.nom : null;
@@ -227,6 +240,22 @@ async function enregistrerCommandeDuMatin(clientId, nomClient, atelier) {
     }
   });
 
+  const conteneurAutres = document.getElementById('autres-produits-' + clientId);
+  if (conteneurAutres) {
+    const champsProduits = conteneurAutres.querySelectorAll('.autre-produit');
+    const champsQuantites = conteneurAutres.querySelectorAll('.autre-quantite');
+    champsProduits.forEach((input, i) => {
+      const produit = input.value.trim();
+      const quantite = parseFloat(champsQuantites[i].value) || 0;
+      if (produit && quantite > 0) {
+        lignes.push({
+          client: nomClient, produit, quantite, atelier,
+          date_retrait: aujourdhui, prise_par: auteur, notes: 'Client régulier — produit ponctuel'
+        });
+      }
+    });
+  }
+
   if (lignes.length === 0) {
     alert('Aucune quantité renseignée.');
     return;
@@ -241,6 +270,8 @@ async function enregistrerCommandeDuMatin(clientId, nomClient, atelier) {
     const input = document.getElementById('qte-' + p.id);
     if (input) input.value = '';
   });
+
+  if (conteneurAutres) conteneurAutres.innerHTML = '';
 }
 
 let historiqueParClient = {};
