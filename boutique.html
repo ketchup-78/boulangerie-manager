@@ -31,12 +31,13 @@
     padding:14px; border-radius:12px; font-size:16px; font-weight:600;
   }
   button.primary:active{transform:scale(0.98);}
-  button.bouton-section{
-    width:100%; border:none; background:var(--ink); color:#fff;
+  .bouton-section{
+    display:block; width:100%; border:none; background:var(--ink); color:#fff;
     padding:18px; border-radius:16px; font-size:16px; font-weight:600;
     font-family:'Fraunces',serif; margin-bottom:14px; text-align:left;
+    text-decoration:none; box-sizing:border-box;
   }
-  button.bouton-section:active{transform:scale(0.98);}
+  .bouton-section:active{transform:scale(0.98);}
   .commande{padding:14px 0; border-bottom:1px solid #eee;}
   .commande:last-child{border-bottom:none;}
   .commande-top{display:flex; justify-content:space-between; align-items:center;}
@@ -106,7 +107,7 @@
 
   <button class="bouton-section" onclick="ouvrirModalMessage()">💬 Message pour le labo</button>
 
-  <a href="client-fidele.html?atelier=vente" class="bouton-section" style="display:block; text-align:left; text-decoration:none; box-sizing:border-box;">🐭 Clients réguliers</a>
+  <a href="client-fidele.html?atelier=vente" class="bouton-section">🐭 Clients réguliers</a>
 
   <div class="card">
     <h2>📋 Commandes à venir</h2>
