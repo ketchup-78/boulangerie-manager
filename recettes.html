@@ -104,6 +104,12 @@ async function chargerRecettes() {
   `).join('');
 }
 
+function nettoyerNomFichier(nom) {
+  return nom
+    .normalize('NFD').replace(/[\u0300-\u036f]/g, '') // enlève les accents
+    .replace(/[^a-zA-Z0-9._-]/g, '_'); // remplace tout caractère non autorisé par _
+}
+
 async function ajouterRecette() {
   if (!window.profilActuel || window.profilActuel.role !== 'chef') {
     alert("Seul le chef peut ajouter une recette.");
@@ -125,7 +131,7 @@ async function ajouterRecette() {
   let pdf_url = null;
 
   if (fichier) {
-    const nomFichier = Date.now() + '-' + fichier.name.replace(/\s+/g, '_');
+    const nomFichier = Date.now() + '-' + nettoyerNomFichier(fichier.name);
     const { error: erreurUpload } = await supabaseClient.storage.from('Recettes').upload(nomFichier, fichier);
     if (erreurUpload) {
       alert("Erreur lors de l'envoi du PDF : " + erreurUpload.message);
