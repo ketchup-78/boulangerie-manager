@@ -155,6 +155,7 @@ async function telechargerTotalMois(nomClient) {
     .from('commandes')
     .select('*')
     .ilike('client', nomClient.trim())
+    .eq('statut', 'pret')
     .gte('date_retrait', premierJour)
     .lte('date_retrait', dernierJour)
     .order('date_retrait', { ascending: true });
@@ -301,6 +302,7 @@ async function basculerHistorique(clientId, nomClient) {
     .from('commandes')
     .select('*')
     .ilike('client', nomClient.trim())
+    .eq('statut', 'pret')
     .order('date_retrait', { ascending: false });
 
   if (error) { zone.innerHTML = `<p class="empty">Erreur : ${error.message}</p>`; return; }
