@@ -108,6 +108,8 @@
 
   <button class="bouton-section" onclick="ouvrirModalMessage()">💬 Message pour le labo</button>
 
+  <button class="bouton-section" onclick="ouvrirModalRecurrence()">🔁 Commande récurrente</button>
+
   <a href="client-fidele.html?atelier=vente" class="bouton-section">📒 Facture clients</a>
 
   <div class="card">
@@ -123,8 +125,8 @@
   </div>
 </main>
 
-<script src="supabase-config.js?v=5"></script>
-<script src="profil.js?v=5"></script>
+<script src="supabase-config.js?v=6"></script>
+<script src="profil.js?v=6"></script>
 <script>
 
 // Vérifie que l'heure choisie tombe bien dans les horaires d'ouverture
@@ -258,6 +260,171 @@ function fermerModalMessage() {
   if (overlay) overlay.remove();
 }
 
+// ---------- COMMANDES RÉCURRENTES ----------
+const NOMS_JOURS = { 1: 'Lun', 2: 'Mar', 3: 'Mer', 4: 'Jeu', 5: 'Ven', 6: 'Sam', 7: 'Dim' };
+
+async function ouvrirModalRecurrence() {
+  const overlay = document.createElement('div');
+  overlay.id = 'overlay-recurrence';
+  overlay.style.cssText = 'position:fixed;inset:0;background:rgba(36,26,20,.6);display:flex;align-items:center;justify-content:center;z-index:9998;padding:20px;overflow-y:auto;';
+  overlay.innerHTML = `
+    <div style="background:#fff;border-radius:18px;padding:24px;max-width:420px;width:100%;max-height:90vh;overflow-y:auto;">
+      <h2 style="font-family:'Fraunces',serif;margin-top:0;">🔁 Nouvelle récurrence</h2>
+
+      <label style="display:block;font-size:13px;opacity:.7;margin:10px 0 4px;">Client</label>
+      <input id="recur-client" placeholder="ex: Mme Dupont" style="width:100%;padding:12px;border-radius:10px;border:1px solid #ddd;font-size:15px;">
+
+      <label style="display:block;font-size:13px;opacity:.7;margin:10px 0 4px;">Produit</label>
+      <input id="recur-produit" placeholder="ex: Pain de campagne" style="width:100%;padding:12px;border-radius:10px;border:1px solid #ddd;font-size:15px;">
+
+      <label style="display:block;font-size:13px;opacity:.7;margin:10px 0 4px;">Atelier</label>
+      <select id="recur-atelier" style="width:100%;padding:12px;border-radius:10px;border:1px solid #ddd;font-size:15px;">
+        <option value="boulangerie">🍞 Boulangerie</option>
+        <option value="patisserie">🧁 Pâtisserie</option>
+      </select>
+
+      <label style="display:block;font-size:13px;opacity:.7;margin:10px 0 4px;">Quantité</label>
+      <input id="recur-quantite" type="number" min="1" value="1" style="width:100%;padding:12px;border-radius:10px;border:1px solid #ddd;font-size:15px;">
+
+      <label style="display:block;font-size:13px;opacity:.7;margin:10px 0 4px;">Heure de retrait (optionnel)</label>
+      <input id="recur-heure" type="time" style="width:100%;padding:12px;border-radius:10px;border:1px solid #ddd;font-size:15px;">
+
+      <label style="display:block;font-size:13px;opacity:.7;margin:12px 0 6px;">Jours de la semaine</label>
+      <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px;">
+        ${Object.keys(NOMS_JOURS).map(j => `
+          <label style="display:flex;flex-direction:column;align-items:center;font-size:12px;gap:4px;">
+            <input type="checkbox" value="${j}" class="recur-jour" style="width:auto;">
+            ${NOMS_JOURS[j]}
+          </label>
+        `).join('')}
+      </div>
+
+      <button class="primary" onclick="creerRecurrence()">Créer la récurrence</button>
+      <button onclick="fermerModalRecurrence()" style="width:100%;border:none;background:none;color:#999;padding:10px;margin-top:6px;font-size:14px;">Annuler</button>
+
+      <h3 style="font-family:'Fraunces',serif;margin:20px 0 10px;font-size:16px;">Récurrences existantes</h3>
+      <div id="liste-recurrences"><p style="opacity:.5;font-size:14px;">Chargement...</p></div>
+    </div>`;
+  document.body.appendChild(overlay);
+  chargerRecurrences();
+}
+
+function fermerModalRecurrence() {
+  const overlay = document.getElementById('overlay-recurrence');
+  if (overlay) overlay.remove();
+}
+
+async function creerRecurrence() {
+  const client = document.getElementById('recur-client').value.trim();
+  const produit = document.getElementById('recur-produit').value.trim();
+  const atelier = document.getElementById('recur-atelier').value;
+  const quantite = parseInt(document.getElementById('recur-quantite').value) || 1;
+  const heure_retrait = document.getElementById('recur-heure').value || null;
+  const jours_semaine = Array.from(document.querySelectorAll('.recur-jour:checked')).map(c => parseInt(c.value));
+  const cree_par = window.profilActuel ? window.profilActuel.nom : null;
+
+  if (!client || !produit || jours_semaine.length === 0) {
+    alert('Merci de renseigner le client, le produit et au moins un jour.');
+    return;
+  }
+
+  const { error } = await supabaseClient.from('commandes_recurrentes').insert([
+    { client, produit, atelier, quantite, heure_retrait, jours_semaine, cree_par }
+  ]);
+
+  if (error) { alert('Erreur : ' + error.message); return; }
+
+  document.getElementById('recur-client').value = '';
+  document.getElementById('recur-produit').value = '';
+  document.getElementById('recur-quantite').value = 1;
+  document.getElementById('recur-heure').value = '';
+  document.querySelectorAll('.recur-jour').forEach(c => c.checked = false);
+
+  chargerRecurrences();
+  await genererCommandesRecurrentes();
+  chargerCommandes();
+}
+
+async function chargerRecurrences() {
+  const conteneur = document.getElementById('liste-recurrences');
+  const { data, error } = await supabaseClient.from('commandes_recurrentes').select('*').order('client');
+
+  if (error) { conteneur.innerHTML = `<p style="opacity:.5;font-size:14px;">Erreur : ${error.message}</p>`; return; }
+  if (!data || data.length === 0) { conteneur.innerHTML = `<p style="opacity:.5;font-size:14px;">Aucune récurrence pour l'instant.</p>`; return; }
+
+  conteneur.innerHTML = data.map(r => `
+    <div style="border:1px solid #eee;border-radius:12px;padding:12px;margin-bottom:8px;${r.active ? '' : 'opacity:.5;'}">
+      <strong>${r.client}</strong> — ${r.produit} (x${r.quantite})<br>
+      <small style="opacity:.6;">${r.jours_semaine.map(j => NOMS_JOURS[j]).join(', ')}${r.heure_retrait ? ' · ' + r.heure_retrait.slice(0,5) : ''}</small>
+      <div style="display:flex;gap:8px;margin-top:8px;">
+        <button onclick="basculerActifRecurrence('${r.id}', ${!r.active})" style="flex:1;border:none;background:${r.active ? '#f1e4c8' : '#dcf3e3'};color:#241A14;padding:8px;border-radius:8px;font-size:13px;">
+          ${r.active ? '⏸️ Mettre en pause' : '▶️ Réactiver'}
+        </button>
+        <button onclick="supprimerRecurrence('${r.id}')" style="border:none;background:none;font-size:16px;opacity:.5;">🗑️</button>
+      </div>
+    </div>
+  `).join('');
+}
+
+async function basculerActifRecurrence(id, nouvelEtat) {
+  const { error } = await supabaseClient.from('commandes_recurrentes').update({ active: nouvelEtat }).eq('id', id);
+  if (error) { alert('Erreur : ' + error.message); return; }
+  chargerRecurrences();
+  if (nouvelEtat) { await genererCommandesRecurrentes(); chargerCommandes(); }
+}
+
+async function supprimerRecurrence(id) {
+  if (!confirm('Supprimer définitivement cette récurrence ?')) return;
+  const { error } = await supabaseClient.from('commandes_recurrentes').delete().eq('id', id);
+  if (error) { alert('Erreur : ' + error.message); return; }
+  chargerRecurrences();
+}
+
+// Génère les commandes à venir pour les 14 prochains jours à partir des récurrences actives
+async function genererCommandesRecurrentes() {
+  const { data: recurrences } = await supabaseClient.from('commandes_recurrentes').select('*').eq('active', true);
+  if (!recurrences || recurrences.length === 0) return;
+
+  const jours = [];
+  const aujourdhui = new Date();
+  for (let i = 0; i < 14; i++) {
+    const d = new Date(aujourdhui);
+    d.setDate(aujourdhui.getDate() + i);
+    const isoJour = d.getDay() === 0 ? 7 : d.getDay();
+    jours.push({ date: dateLocale(d), isoJour });
+  }
+
+  const nouvellesLignes = [];
+
+  for (const r of recurrences) {
+    const joursCorrespondants = jours.filter(j => r.jours_semaine.includes(j.isoJour));
+    if (joursCorrespondants.length === 0) continue;
+
+    const { data: existantes } = await supabaseClient
+      .from('commandes')
+      .select('date_retrait')
+      .eq('client', r.client)
+      .eq('produit', r.produit)
+      .in('date_retrait', joursCorrespondants.map(j => j.date));
+
+    const datesExistantes = new Set((existantes || []).map(e => e.date_retrait));
+
+    joursCorrespondants.forEach(j => {
+      if (!datesExistantes.has(j.date)) {
+        nouvellesLignes.push({
+          client: r.client, produit: r.produit, atelier: r.atelier,
+          quantite: r.quantite, heure_retrait: r.heure_retrait,
+          date_retrait: j.date, notes: 'Récurrence automatique'
+        });
+      }
+    });
+  }
+
+  if (nouvellesLignes.length > 0) {
+    await supabaseClient.from('commandes').insert(nouvellesLignes);
+  }
+}
+
 async function ajouterCommande() {
   const client = document.getElementById('client').value.trim();
   const produit = document.getElementById('produit').value.trim();
@@ -327,9 +494,10 @@ async function envoyerMessage() {
 }
 
 // On attend de savoir qui utilise la tablette avant de charger la page
-initProfil((profil) => {
+initProfil(async (profil) => {
   window.profilActuel = profil;
   document.getElementById('date_retrait').value = dateLocale();
+  await genererCommandesRecurrentes();
   chargerCommandes();
 
   supabaseClient
