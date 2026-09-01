@@ -250,17 +250,38 @@ async function chargerCommandes() {
 
   const estAujourdhui = dateChoisie === aujourdhui;
 
-  conteneur.innerHTML = data.map(c => `
-    <div class="commande" style="${c.statut === 'annule' ? 'background:#fdeaea; border-radius:10px; padding:10px; margin-bottom:6px;' : ''}">
-      <span>
-        <strong>${c.client}</strong> — ${c.produit} (x${c.quantite})
-        <small>${c.heure_retrait ? 'Retrait ' + c.heure_retrait.slice(0,5) : 'Heure non précisée'}${c.notes ? ' · ' + c.notes : ''}</small>
-        ${c.statut === 'annule' ? '<br><strong style="color:var(--danger);">✕ Annulée</strong>' : `<br><small>${libelleStatutCommande(c.statut)}</small>`}
-      </span>
-      ${estAujourdhui && c.statut === 'a_faire' ? `
-        <button class="small" onclick="marquerPret('${c.id}', this)">Marquer prêt</button>` : ''}
-    </div>
-  `).join('');
+  // Regroupe les lignes par client pour n'afficher qu'un seul bloc par personne
+  const groupes = {};
+  data.forEach(c => {
+    if (!groupes[c.client]) groupes[c.client] = [];
+    groupes[c.client].push(c);
+  });
+
+  conteneur.innerHTML = Object.keys(groupes).map(client => {
+    const lignes = groupes[client];
+    const tousAnnules = lignes.every(c => c.statut === 'annule');
+    const idsAFaire = lignes.filter(c => c.statut === 'a_faire').map(c => c.id);
+    const heure = (lignes.find(c => c.heure_retrait) || {}).heure_retrait;
+    const notes = [...new Set(lignes.map(c => c.notes).filter(Boolean))].join(' · ');
+
+    const detailProduits = lignes.map(c => `
+      <div style="${c.statut === 'annule' ? 'text-decoration:line-through; opacity:.5;' : ''}">
+        ${c.produit} (x${c.quantite})${c.statut === 'annule' ? ' <strong style="color:var(--danger);">✕ Annulée</strong>' : ''}
+      </div>
+    `).join('');
+
+    return `
+      <div class="commande" style="${tousAnnules ? 'background:#fdeaea; border-radius:10px; padding:10px; margin-bottom:6px;' : ''}">
+        <span>
+          <strong>${client}</strong>
+          <small>${heure ? 'Retrait ' + heure.slice(0,5) : 'Heure non précisée'}${notes ? ' · ' + notes : ''}</small>
+          ${detailProduits}
+        </span>
+        ${estAujourdhui && idsAFaire.length > 0 ? `
+          <button class="small" onclick='marquerPretMultiple(${JSON.stringify(idsAFaire)}, this)'>Marquer prêt</button>` : ''}
+      </div>
+    `;
+  }).join('');
 }
 
 function libelleStatutCommande(s) {
@@ -276,6 +297,12 @@ async function marquerPret(id, bouton) {
   // Confirmation immédiate à l'écran, avant même la réponse du serveur
   bouton.outerHTML = '<span class="done">✅ Prêt</span>';
   const { error } = await supabaseClient.from('commandes').update({ statut: 'pret' }).eq('id', id);
+  if (error) alert('Erreur : ' + error.message);
+}
+
+async function marquerPretMultiple(ids, bouton) {
+  bouton.outerHTML = '<span class="done">✅ Prêt</span>';
+  const { error } = await supabaseClient.from('commandes').update({ statut: 'pret' }).in('id', ids);
   if (error) alert('Erreur : ' + error.message);
 }
 
