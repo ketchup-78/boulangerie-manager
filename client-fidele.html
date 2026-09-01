@@ -90,12 +90,22 @@ async function chargerClientsReguliers() {
     }
 
     if (client.mode === 'libre') {
+      const { data: produitsHabituels } = await supabaseClient
+        .from('clients_reguliers_produits')
+        .select('*')
+        .eq('client_id', client.id)
+        .order('created_at', { ascending: true });
+
+      const lignesDepart = (produitsHabituels && produitsHabituels.length > 0)
+        ? produitsHabituels.map(p => p.produit)
+        : ['', '', ''];
+
       carte.innerHTML = `
         <h2>${emoji} ${client.nom}</h2>
         <div id="lignes-libres-${client.id}">
-          ${[0,1,2].map(() => `
+          ${lignesDepart.map(nomProduit => `
             <div class="ligne-produit">
-              <input type="text" placeholder="Produit" class="produit-libre" style="flex:2;">
+              <input type="text" placeholder="Produit" class="produit-libre" style="flex:2;" value="${nomProduit}">
               <input type="number" min="0" placeholder="Qté" class="quantite-libre">
             </div>
           `).join('')}
@@ -208,7 +218,6 @@ async function enregistrerCommandeLibre(clientId, nomClient, atelier) {
 
   alert('Commande enregistrée (' + lignes.length + ' produit(s)).');
 
-  champsProduits.forEach(input => input.value = '');
   champsQuantites.forEach(input => input.value = '');
 }
 
