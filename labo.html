@@ -50,12 +50,12 @@
 </head>
 <body>
 
-<header>
-  <h1 id="titre-page">🍞 Labo</h1>
-  <div style="text-align:right;">
-    <span id="bandeau-profil" style="display:block;font-size:12px;opacity:.8;"></span>
-    <a href="index.html" title="Accueil" style="display:inline-block;width:32px;height:32px;line-height:32px;border-radius:50%;background:var(--accent);color:#241A14;text-decoration:none;font-size:16px;vertical-align:middle;">🏠</a>
-    <button onclick="effacerProfil()" title="Changer de profil" style="width:40px;height:40px;border-radius:50%;border:none;background:var(--accent);color:#241A14;font-size:20px;cursor:pointer;margin-left:8px;vertical-align:middle;padding:0;">👨‍🍳</button>
+<header style="display:flex; align-items:center; justify-content:space-between; gap:10px;">
+  <a href="index.html" title="Accueil" style="display:inline-flex; align-items:center; justify-content:center; flex-shrink:0; width:40px; height:40px; border-radius:50%; background:var(--accent); color:#241A14; text-decoration:none; font-size:18px;">🏠</a>
+  <h1 id="titre-page" style="margin:0; text-align:center; flex:1;">🍞 Labo</h1>
+  <div style="display:flex; flex-direction:column; align-items:center; flex-shrink:0;">
+    <button onclick="effacerProfil()" title="Changer de profil" style="width:52px; height:52px; border-radius:50%; border:none; background:var(--accent); color:#241A14; font-size:26px; cursor:pointer; padding:0;">👨‍🍳</button>
+    <span id="bandeau-profil" style="font-size:10px; opacity:.8; margin-top:3px; text-align:center;"></span>
   </div>
 </header>
 
@@ -116,8 +116,8 @@
   </div>
 </main>
 
-<script src="supabase-config.js?v=3"></script>
-<script src="profil.js?v=3"></script>
+<script src="supabase-config.js?v=4"></script>
+<script src="profil.js?v=4"></script>
 <script>
 
 const params = new URLSearchParams(window.location.search);
