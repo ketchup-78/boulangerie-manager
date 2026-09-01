@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Clients réguliers — Boulangerie Manager</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:wght@600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+  :root{
+    --bg:#FAF7F2; --surface:#FFFFFF; --ink:#241A14;
+    --accent:#C68A2E; --accent-dark:#9C6B1E; --radius:18px;
+  }
+  *{box-sizing:border-box;}
+  body{font-family:'Inter',Arial,sans-serif; margin:0; background:var(--bg); color:var(--ink);}
+  header{background:var(--ink); color:#fff; padding:22px 20px; display:flex; align-items:center; justify-content:space-between;}
+  header h1{margin:0; font-family:'Fraunces',serif; font-size:22px;}
+  header a{color:#fff; opacity:.7; text-decoration:none; font-size:13px;}
+  main{padding:20px; max-width:700px; margin:auto;}
+  .card{background:var(--surface); border-radius:var(--radius); padding:20px; margin-bottom:16px; box-shadow:0 2px 8px rgba(0,0,0,.06);}
+  .card h2{margin-top:0; font-family:'Fraunces',serif; font-size:19px;}
+  label{display:block; font-size:13px; opacity:.7; margin:10px 0 4px;}
+  input, select, textarea{width:100%; padding:12px; border-radius:10px; border:1px solid #ddd; font-size:15px; font-family:inherit;}
+  textarea{min-height:80px; resize:vertical;}
+  button.primary{
+    margin-top:16px; width:100%; border:none; background:var(--accent); color:#241A14;
+    padding:14px; border-radius:12px; font-size:16px; font-weight:600;
+  }
+  button.primary:active{transform:scale(0.98);}
+  .ligne-produit{display:flex; align-items:center; gap:10px; margin-bottom:8px;}
+  .ligne-produit span{flex:1;}
+  .ligne-produit input{width:80px; text-align:center;}
+  .lien-historique{width:100%; border:none; background:none; color:var(--accent-dark); font-size:14px; margin-top:10px; text-decoration:underline; cursor:pointer; padding:0; text-align:left;}
+  .empty{opacity:.5; font-size:14px; padding:10px 0;}
+</style>
+</head>
+<body>
+
+<header>
+  <h1>👤 Clients réguliers</h1>
+  <div style="text-align:right;">
+    <span id="bandeau-profil" style="display:block;font-size:12px;opacity:.8;"></span>
+    <a href="index.html">← Accueil</a> · <a href="#" onclick="effacerProfil()">Changer</a>
+  </div>
+</header>
+
+<main id="zone-clients">
+  <div class="card">
+    <h2>➕ Nouveau client régulier</h2>
+    <label>Nom du client</label>
+    <input id="nom-client" placeholder="ex: M. Martin">
+
+    <label>Atelier</label>
+    <select id="atelier-client">
+      <option value="boulangerie">🍞 Boulangerie</option>
+      <option value="patisserie">🧁 Pâtisserie</option>
+    </select>
+
+    <label>Produits habituels (un par ligne)</label>
+    <textarea id="produits-client" placeholder="Baguette&#10;Pain de campagne&#10;Croissant"></textarea>
+
+    <button class="primary" onclick="creerClientRegulier()">Créer le client</button>
+  </div>
+
+  <div id="liste-clients-reguliers"></div>
+</main>
+
+<script src="supabase-config.js"></script>
+<script src="profil.js"></script>
+<script>
+
+async function chargerClientsReguliers() {
+  const conteneur = document.getElementById('liste-clients-reguliers');
+  const { data: clients, error } = await supabaseClient.from('clients_reguliers').select('*').order('nom');
+
+  if (error) { conteneur.innerHTML = `<p class="empty">Erreur : ${error.message}</p>`; return; }
+  if (!clients || clients.length === 0) { conteneur.innerHTML = ''; return; }
+
+  conteneur.innerHTML = '';
+
+  for (const client of clients) {
+    const { data: produits } = await supabaseClient
+      .from('clients_reguliers_produits')
+      .select('*')
+      .eq('client_id', client.id)
+      .order('created_at', { ascending: true });
+
+    const carte = document.createElement('div');
+    carte.className = 'card';
+    carte.innerHTML = `
+      <h2>${client.atelier === 'patisserie' ? '🧁' : '🍞'} ${client.nom}</h2>
+      ${(produits || []).length === 0 ? '<p class="empty">Aucun produit enregistré.</p>' : (produits || []).map(p => `
+        <div class="ligne-produit">
+          <span>${p.produit}</span>
+          <input type="number" min="0" id="qte-${p.id}" placeholder="0">
+        </div>
+      `).join('')}
+      <button class="primary" onclick='enregistrerCommandeDuMatin(${JSON.stringify(client.id)}, ${JSON.stringify(client.nom)}, ${JSON.stringify(client.atelier)})'>Enregistrer la commande de ce matin</button>
+      <button class="lien-historique" onclick="basculerHistorique('${client.id}', '${client.nom.replace(/'/g, "\\'")}')">📊 Voir l'historique</button>
+      <div id="historique-${client.id}" style="display:none; margin-top:14px;"></div>
+    `;
+    conteneur.appendChild(carte);
+  }
+}
+
+async function enregistrerCommandeDuMatin(clientId, nomClient, atelier) {
+  const { data: produits } = await supabaseClient.from('clients_reguliers_produits').select('*').eq('client_id', clientId);
+  const auteur = window.profilActuel ? window.profilActuel.nom : null;
+  const aujourdhui = dateLocale();
+
+  const lignes = [];
+  (produits || []).forEach(p => {
+    const input = document.getElementById('qte-' + p.id);
+    const quantite = parseInt(input.value) || 0;
+    if (quantite > 0) {
+      lignes.push({
+        client: nomClient, produit: p.produit, quantite, atelier,
+        date_retrait: aujourdhui, prise_par: auteur, notes: 'Client régulier'
+      });
+    }
+  });
+
+  if (lignes.length === 0) {
+    alert('Aucune quantité renseignée.');
+    return;
+  }
+
+  const { error } = await supabaseClient.from('commandes').insert(lignes);
+  if (error) { alert('Erreur : ' + error.message); return; }
+
+  alert('Commande du matin enregistrée (' + lignes.length + ' produit(s)) — elle apparaît maintenant dans les commandes du jour.');
+
+  (produits || []).forEach(p => {
+    const input = document.getElementById('qte-' + p.id);
+    if (input) input.value = '';
+  });
+}
+
+async function basculerHistorique(clientId, nomClient) {
+  const zone = document.getElementById('historique-' + clientId);
+
+  if (zone.style.display === 'block') {
+    zone.style.display = 'none';
+    return;
+  }
+
+  zone.innerHTML = '<p class="empty">Chargement...</p>';
+  zone.style.display = 'block';
+
+  const { data: commandes, error } = await supabaseClient
+    .from('commandes')
+    .select('*')
+    .eq('client', nomClient)
+    .order('date_retrait', { ascending: false });
+
+  if (error) { zone.innerHTML = `<p class="empty">Erreur : ${error.message}</p>`; return; }
+  if (!commandes || commandes.length === 0) { zone.innerHTML = '<p class="empty">Aucun historique pour l\'instant.</p>'; return; }
+
+  const parJour = {};
+  const totaux = {};
+  commandes.forEach(c => {
+    if (!parJour[c.date_retrait]) parJour[c.date_retrait] = [];
+    parJour[c.date_retrait].push(c);
+    totaux[c.produit] = (totaux[c.produit] || 0) + c.quantite;
+  });
+
+  let html = '<h4 style="margin:0 0 8px; font-size:13px; opacity:.6; text-transform:uppercase;">Total cumulé</h4>';
+  html += Object.keys(totaux).map(p => `
+    <div style="display:flex; justify-content:space-between; font-size:14px; padding:4px 0;">
+      <span>${p}</span><strong>${totaux[p]}</strong>
+    </div>`).join('');
+
+  html += '<h4 style="margin:16px 0 8px; font-size:13px; opacity:.6; text-transform:uppercase;">Détail par jour</h4>';
+  html += Object.keys(parJour).sort().reverse().map(jour => `
+    <div style="margin-bottom:10px;">
+      <strong style="font-size:13px;">${jour.slice(8,10)}/${jour.slice(5,7)}/${jour.slice(0,4)}</strong>
+      ${parJour[jour].map(c => `<div style="font-size:13px; opacity:.8; padding-left:10px;">${c.produit} × ${c.quantite}</div>`).join('')}
+    </div>
+  `).join('');
+
+  zone.innerHTML = html;
+}
+
+async function creerClientRegulier() {
+  const nom = document.getElementById('nom-client').value.trim();
+  const atelier = document.getElementById('atelier-client').value;
+  const produitsTexte = document.getElementById('produits-client').value;
+
+  if (!nom) { alert('Merci de donner un nom.'); return; }
+
+  const produitsListe = produitsTexte.split('\n').map(l => l.trim()).filter(l => l.length > 0);
+  if (produitsListe.length === 0) { alert('Ajoute au moins un produit.'); return; }
+
+  const { data: client, error } = await supabaseClient.from('clients_reguliers').insert([{ nom, atelier }]).select().single();
+  if (error) { alert('Erreur : ' + error.message); return; }
+
+  const lignes = produitsListe.map(p => ({ client_id: client.id, produit: p }));
+  const { error: erreurProduits } = await supabaseClient.from('clients_reguliers_produits').insert(lignes);
+  if (erreurProduits) { alert('Erreur : ' + erreurProduits.message); return; }
+
+  document.getElementById('nom-client').value = '';
+  document.getElementById('produits-client').value = '';
+  chargerClientsReguliers();
+}
+
+// Réservé au chef
+initProfil((profil) => {
+  window.profilActuel = profil;
+
+  if (profil.role !== 'chef') {
+    document.getElementById('zone-clients').innerHTML =
+      '<div class="card"><p class="empty">Cette page est réservée au chef.</p></div>';
+    return;
+  }
+
+  chargerClientsReguliers();
+});
+
+</script>
+</body>
+</html>
