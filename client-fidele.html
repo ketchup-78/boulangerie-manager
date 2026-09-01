@@ -50,8 +50,8 @@
   <div id="liste-clients-reguliers"></div>
 </main>
 
-<script src="supabase-config.js?v=5"></script>
-<script src="profil.js?v=5"></script>
+<script src="supabase-config.js?v=6"></script>
+<script src="profil.js?v=6"></script>
 <script>
 
 const paramsPage = new URLSearchParams(window.location.search);
@@ -154,7 +154,7 @@ async function telechargerTotalMois(nomClient) {
   const { data: commandes, error } = await supabaseClient
     .from('commandes')
     .select('*')
-    .eq('client', nomClient)
+    .ilike('client', nomClient.trim())
     .gte('date_retrait', premierJour)
     .lte('date_retrait', dernierJour)
     .order('date_retrait', { ascending: true });
@@ -300,7 +300,7 @@ async function basculerHistorique(clientId, nomClient) {
   const { data: commandes, error } = await supabaseClient
     .from('commandes')
     .select('*')
-    .eq('client', nomClient)
+    .ilike('client', nomClient.trim())
     .order('date_retrait', { ascending: false });
 
   if (error) { zone.innerHTML = `<p class="empty">Erreur : ${error.message}</p>`; return; }
