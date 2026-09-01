@@ -163,6 +163,7 @@ async function chargerCommandes() {
     .select('*')
     .gte('date_retrait', joursSemaineCommandes[0])
     .lte('date_retrait', joursSemaineCommandes[6])
+    .or('client.neq."Casino Shop",produit.in.("Bûcheron","Complet")')
     .order('heure_retrait', { ascending: true });
 
   const conteneur = document.getElementById('liste-commandes');
