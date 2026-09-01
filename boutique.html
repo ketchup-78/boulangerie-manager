@@ -38,6 +38,13 @@
     text-decoration:none; box-sizing:border-box;
   }
   .bouton-section:active{transform:scale(0.98);}
+  .raccourci{
+    flex:1; background:var(--surface); border:none; border-radius:14px; padding:14px 6px;
+    text-decoration:none; color:var(--ink); text-align:center; box-shadow:0 2px 8px rgba(0,0,0,.06);
+    display:flex; flex-direction:column; align-items:center; gap:6px; font-size:13px; font-weight:600;
+    font-family:inherit; cursor:pointer;
+  }
+  .raccourci:active{transform:scale(0.97);}
   .commande{padding:14px 0; border-bottom:1px solid #eee;}
   .commande:last-child{border-bottom:none;}
   .commande-top{display:flex; justify-content:space-between; align-items:center;}
@@ -106,11 +113,20 @@
     <button class="primary" onclick="ajouterCommande()">Ajouter la commande</button>
   </div>
 
-  <button class="bouton-section" onclick="ouvrirModalMessage()">💬 Message pour le labo</button>
-
-  <button class="bouton-section" onclick="ouvrirModalRecurrence()">🔁 Commande récurrente</button>
-
-  <a href="client-fidele.html?atelier=vente" class="bouton-section">📒 Facture clients</a>
+  <div style="display:flex; gap:10px; margin-bottom:16px;">
+    <button onclick="ouvrirModalMessage()" class="raccourci">
+      <span style="font-size:24px;">💬</span>
+      <span>Message pour le labo</span>
+    </button>
+    <button onclick="ouvrirModalRecurrence()" class="raccourci">
+      <span style="font-size:24px;">🔁</span>
+      <span>Commande récurrente</span>
+    </button>
+    <a href="client-fidele.html?atelier=vente" class="raccourci">
+      <span style="font-size:24px;">📒</span>
+      <span>Facture clients</span>
+    </a>
+  </div>
 
   <div class="card">
     <h2>📋 Commandes à venir</h2>
