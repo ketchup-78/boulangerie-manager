@@ -116,6 +116,18 @@
     <button class="primary" onclick="ajouterCommande()">Ajouter la commande</button>
   </div>
 
+  <div class="card">
+    <h2>📋 Commandes à venir</h2>
+    <div style="display:flex; align-items:center; gap:8px; margin-bottom:10px;">
+      <button onclick="changerSemaineCommandes(-1)" style="border:none; background:#f1e4c8; border-radius:8px; padding:8px 14px; font-size:16px; color:#241A14;">◀</button>
+      <span id="label-semaine-commandes" style="flex:1; text-align:center; font-size:13px; opacity:.7;"></span>
+      <button onclick="changerSemaineCommandes(1)" style="border:none; background:#f1e4c8; border-radius:8px; padding:8px 14px; font-size:16px; color:#241A14;">▶</button>
+    </div>
+    <div id="liste-commandes">
+      <p class="empty">Chargement...</p>
+    </div>
+  </div>
+
   <div style="display:flex; gap:10px; margin-bottom:16px;">
     <button onclick="ouvrirModalMessage()" class="raccourci">
       <span style="font-size:24px;">💬</span>
@@ -139,18 +151,6 @@
     <h2>🔍 Retrouver une commande client</h2>
     <input id="recherche-client" placeholder="Nom du client..." oninput="rechercherCommandesClient()">
     <div id="resultats-recherche" style="margin-top:10px;"></div>
-  </div>
-
-  <div class="card">
-    <h2>📋 Commandes à venir</h2>
-    <div style="display:flex; align-items:center; gap:8px; margin-bottom:10px;">
-      <button onclick="changerSemaineCommandes(-1)" style="border:none; background:#f1e4c8; border-radius:8px; padding:8px 14px; font-size:16px; color:#241A14;">◀</button>
-      <span id="label-semaine-commandes" style="flex:1; text-align:center; font-size:13px; opacity:.7;"></span>
-      <button onclick="changerSemaineCommandes(1)" style="border:none; background:#f1e4c8; border-radius:8px; padding:8px 14px; font-size:16px; color:#241A14;">▶</button>
-    </div>
-    <div id="liste-commandes">
-      <p class="empty">Chargement...</p>
-    </div>
   </div>
 </main>
 
