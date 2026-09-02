@@ -92,6 +92,7 @@
   </div>
   <div class="card" id="card-ajout-tache">
     <h2>Ajouter une tâche</h2>
+    <div id="raccourcis-taches" style="display:flex; flex-wrap:wrap; gap:6px; margin-bottom:12px;"></div>
     <label>Description</label>
     <input id="description-tache" placeholder="ex: Lancer le pétrin">
     <label>Assigner à (optionnel)</label>
@@ -152,32 +153,21 @@ if (atelier === 'patisserie') {
 }
 
 // ---------- TÂCHES ----------
-// Crée les tâches récurrentes du jour si elles n'existent pas déjà pour aujourd'hui
-async function genererTachesRecurrentes() {
-  const { data: recurrentes } = await supabaseClient
-    .from('taches_recurrentes')
-    .select('*')
-    .eq('atelier', atelier);
+// Affiche des boutons rapides pour remplir la description sans tout retaper
+async function chargerRaccourcisTaches() {
+  const conteneur = document.getElementById('raccourcis-taches');
+  if (!conteneur) return;
 
-  if (!recurrentes || recurrentes.length === 0) return;
+  const { data } = await supabaseClient.from('taches_recurrentes').select('*').eq('atelier', atelier).order('description');
+  if (!data || data.length === 0) { conteneur.innerHTML = ''; return; }
 
-  const aujourdhui = dateLocale();
+  conteneur.innerHTML = data.map(t => `
+    <button type="button" onclick="remplirDescriptionTache(${JSON.stringify(t.description)})" style="border:1px solid #ddd; background:#fff; color:var(--ink); padding:6px 12px; border-radius:20px; font-size:12px; cursor:pointer;">${t.description}</button>
+  `).join('');
+}
 
-  const { data: existantes } = await supabaseClient
-    .from('taches')
-    .select('description')
-    .eq('atelier', atelier)
-    .eq('date_tache', aujourdhui);
-
-  const descriptionsExistantes = new Set((existantes || []).map(t => t.description));
-
-  const nouvelles = recurrentes
-    .filter(r => !descriptionsExistantes.has(r.description))
-    .map(r => ({ description: r.description, atelier, date_tache: aujourdhui }));
-
-  if (nouvelles.length > 0) {
-    await supabaseClient.from('taches').insert(nouvelles);
-  }
+function remplirDescriptionTache(texte) {
+  document.getElementById('description-tache').value = texte;
 }
 
 async function chargerTaches() {
@@ -425,7 +415,7 @@ async function verifierMessageDuJour() {
 }
 
 function chargerTout() {
-  genererTachesRecurrentes().then(chargerTaches);
+  chargerTaches();
   chargerCommandes();
   chargerDlc();
   chargerVueSemaine();
@@ -441,6 +431,7 @@ initProfil((profil) => {
     document.getElementById('card-ajout-tache').style.display = 'none';
   } else {
     remplirListeEmployes();
+    chargerRaccourcisTaches();
   }
 
   chargerTout();
