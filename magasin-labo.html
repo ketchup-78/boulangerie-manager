@@ -43,6 +43,12 @@
     <h2>Ce que les vendeuses demandent</h2>
     <div id="liste-demandes"><p class="empty">Chargement...</p></div>
   </div>
+
+  <div class="card">
+    <h2>📊 Total du mois</h2>
+    <div id="total-mois"><p class="empty">Chargement...</p></div>
+    <button class="small" style="width:100%; margin-top:10px; padding:12px;" onclick="telechargerTotalMoisMagasin()">⬇️ Télécharger (Excel)</button>
+  </div>
 </main>
 
 <script src="supabase-config.js?v=6"></script>
@@ -77,13 +83,67 @@ async function marquerFait(id, bouton) {
   if (error) alert('Erreur : ' + error.message);
 }
 
+let derniersTotauxMois = [];
+
+async function chargerTotalMois() {
+  const conteneur = document.getElementById('total-mois');
+  const maintenant = new Date();
+  const premierJour = dateLocale(new Date(maintenant.getFullYear(), maintenant.getMonth(), 1));
+  const dernierJour = dateLocale(new Date(maintenant.getFullYear(), maintenant.getMonth() + 1, 0));
+
+  const { data, error } = await supabaseClient
+    .from('demandes_magasin')
+    .select('*')
+    .gte('date_demande', premierJour)
+    .lte('date_demande', dernierJour);
+
+  if (error) { conteneur.innerHTML = `<p class="empty">Erreur : ${error.message}</p>`; return; }
+  if (!data || data.length === 0) { conteneur.innerHTML = `<p class="empty">Rien enregistré ce mois-ci.</p>`; derniersTotauxMois = []; return; }
+
+  const totaux = {};
+  data.forEach(d => { totaux[d.produit] = (totaux[d.produit] || 0) + d.quantite; });
+
+  derniersTotauxMois = Object.keys(totaux).sort().map(p => ({ produit: p, total: totaux[p] }));
+
+  conteneur.innerHTML = derniersTotauxMois.map(t => `
+    <div style="display:flex; justify-content:space-between; padding:6px 0; border-bottom:1px solid #eee; font-size:14px;">
+      <span>${t.produit}</span><strong>${t.total}</strong>
+    </div>
+  `).join('');
+}
+
+function telechargerTotalMoisMagasin() {
+  if (!derniersTotauxMois.length) {
+    alert('Rien à télécharger pour ce mois.');
+    return;
+  }
+
+  const lignes = [['Produit', 'Quantité totale du mois']];
+  derniersTotauxMois.forEach(t => lignes.push([t.produit, t.total]));
+
+  const csv = lignes.map(l => l.map(champ => `"${String(champ).replace(/"/g, '""')}"`).join(';')).join('\n');
+  const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const lien = document.createElement('a');
+  lien.href = url;
+  lien.download = 'total_magasin_' + dateLocale().slice(0,7) + '.csv';
+  document.body.appendChild(lien);
+  lien.click();
+  document.body.removeChild(lien);
+  URL.revokeObjectURL(url);
+}
+
 initProfil((profil) => {
   window.profilActuel = profil;
   chargerDemandes();
+  chargerTotalMois();
 
   supabaseClient
     .channel('demandes-magasin')
-    .on('postgres_changes', { event: '*', schema: 'public', table: 'demandes_magasin' }, chargerDemandes)
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'demandes_magasin' }, () => {
+      chargerDemandes();
+      chargerTotalMois();
+    })
     .subscribe();
 }, 'patisserie');
 
