@@ -152,12 +152,41 @@ if (atelier === 'patisserie') {
 }
 
 // ---------- TÂCHES ----------
+// Crée les tâches récurrentes du jour si elles n'existent pas déjà pour aujourd'hui
+async function genererTachesRecurrentes() {
+  const { data: recurrentes } = await supabaseClient
+    .from('taches_recurrentes')
+    .select('*')
+    .eq('atelier', atelier);
+
+  if (!recurrentes || recurrentes.length === 0) return;
+
+  const aujourdhui = dateLocale();
+
+  const { data: existantes } = await supabaseClient
+    .from('taches')
+    .select('description')
+    .eq('atelier', atelier)
+    .eq('date_tache', aujourdhui);
+
+  const descriptionsExistantes = new Set((existantes || []).map(t => t.description));
+
+  const nouvelles = recurrentes
+    .filter(r => !descriptionsExistantes.has(r.description))
+    .map(r => ({ description: r.description, atelier, date_tache: aujourdhui }));
+
+  if (nouvelles.length > 0) {
+    await supabaseClient.from('taches').insert(nouvelles);
+  }
+}
+
 async function chargerTaches() {
   const conteneur = document.getElementById('liste-taches');
   const { data, error } = await supabaseClient
     .from('taches')
     .select('*')
     .eq('atelier', atelier)
+    .eq('date_tache', dateLocale())
     .eq('fait', false)
     .order('created_at', { ascending: true });
 
@@ -396,7 +425,7 @@ async function verifierMessageDuJour() {
 }
 
 function chargerTout() {
-  chargerTaches();
+  genererTachesRecurrentes().then(chargerTaches);
   chargerCommandes();
   chargerDlc();
   chargerVueSemaine();
