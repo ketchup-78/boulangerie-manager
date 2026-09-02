@@ -79,6 +79,9 @@
     <label>Nom du client</label>
     <input id="client" placeholder="ex: Mme Dupont">
 
+    <label>Téléphone (optionnel)</label>
+    <input id="telephone" type="tel" placeholder="ex: 06 12 34 56 78">
+
     <label>Produit</label>
     <input id="produit" placeholder="ex: Tarte aux fraises">
 
@@ -130,6 +133,12 @@
       <span style="font-size:24px;">🏬</span>
       <span>Magasin</span>
     </a>
+  </div>
+
+  <div class="card">
+    <h2>🔍 Retrouver une commande client</h2>
+    <input id="recherche-client" placeholder="Nom du client..." oninput="rechercherCommandesClient()">
+    <div id="resultats-recherche" style="margin-top:10px;"></div>
   </div>
 
   <div class="card">
@@ -230,7 +239,7 @@ function afficherCommandes() {
         <div class="commande-top">
           <div>
             <strong>${c.client}</strong> — ${c.produit} (x${c.quantite})<br>
-            <small>${c.heure_retrait ? c.heure_retrait.slice(0,5) : 'Heure non précisée'}${c.notes ? ' · ' + c.notes : ''}${c.prise_par ? ' · prise par ' + c.prise_par : ''}</small>
+            <small>${c.heure_retrait ? c.heure_retrait.slice(0,5) : 'Heure non précisée'}${c.telephone ? ' · 📞 ' + c.telephone : ''}${c.notes ? ' · ' + c.notes : ''}${c.prise_par ? ' · prise par ' + c.prise_par : ''}</small>
           </div>
           <span class="statut ${c.statut}">${libelleStatut(c.statut)}</span>
         </div>
@@ -253,6 +262,35 @@ function selectionnerJourCommandes(j) {
 
 function libelleStatut(s) {
   return { a_faire: 'À faire', pret: 'Prêt', annule: 'Annulée' }[s] || s;
+}
+
+async function rechercherCommandesClient() {
+  const recherche = document.getElementById('recherche-client').value.trim();
+  const conteneur = document.getElementById('resultats-recherche');
+
+  if (!recherche) { conteneur.innerHTML = ''; return; }
+
+  const { data, error } = await supabaseClient
+    .from('commandes')
+    .select('*')
+    .ilike('client', '%' + recherche + '%')
+    .order('date_retrait', { ascending: false })
+    .limit(50);
+
+  if (error) { conteneur.innerHTML = `<p class="empty">Erreur : ${error.message}</p>`; return; }
+  if (!data || data.length === 0) { conteneur.innerHTML = `<p class="empty">Aucune commande trouvée.</p>`; return; }
+
+  conteneur.innerHTML = data.map(c => `
+    <div class="commande">
+      <div class="commande-top">
+        <div>
+          <strong>${c.client}</strong> — ${c.produit} (x${c.quantite})<br>
+          <small>${c.date_retrait.split('-').reverse().join('/')}${c.heure_retrait ? ' à ' + c.heure_retrait.slice(0,5) : ''}${c.telephone ? ' · 📞 ' + c.telephone : ''}${c.notes ? ' · ' + c.notes : ''}</small>
+        </div>
+        <span class="statut ${c.statut}">${libelleStatut(c.statut)}</span>
+      </div>
+    </div>
+  `).join('');
 }
 
 function ouvrirModalMessage() {
@@ -447,6 +485,7 @@ async function genererCommandesRecurrentes() {
 
 async function ajouterCommande() {
   const client = document.getElementById('client').value.trim();
+  const telephone = document.getElementById('telephone').value.trim() || null;
   const produit = document.getElementById('produit').value.trim();
   const atelier = document.getElementById('atelier-commande').value;
   const quantite = parseInt(document.getElementById('quantite').value) || 1;
@@ -466,7 +505,7 @@ async function ajouterCommande() {
   }
 
   const { error } = await supabaseClient.from('commandes').insert([
-    { client, produit, atelier, quantite, date_retrait, heure_retrait, notes, prise_par }
+    { client, telephone, produit, atelier, quantite, date_retrait, heure_retrait, notes, prise_par }
   ]);
 
   if (error) {
@@ -475,6 +514,7 @@ async function ajouterCommande() {
   }
 
   document.getElementById('client').value = '';
+  document.getElementById('telephone').value = '';
   document.getElementById('produit').value = '';
   document.getElementById('quantite').value = 1;
   document.getElementById('heure_retrait').value = '';
