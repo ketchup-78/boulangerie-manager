@@ -162,7 +162,7 @@ async function chargerRaccourcisTaches() {
   if (!data || data.length === 0) { conteneur.innerHTML = ''; return; }
 
   conteneur.innerHTML = data.map(t => `
-    <button type="button" onclick="remplirDescriptionTache(${JSON.stringify(t.description)})" style="border:1px solid #ddd; background:#fff; color:var(--ink); padding:6px 12px; border-radius:20px; font-size:12px; cursor:pointer;">${t.description}</button>
+    <button type="button" onclick='remplirDescriptionTache(${JSON.stringify(t.description)})' style="border:1px solid #ddd; background:#fff; color:var(--ink); padding:6px 12px; border-radius:20px; font-size:12px; cursor:pointer;">${t.description}</button>
   `).join('');
 }
 
