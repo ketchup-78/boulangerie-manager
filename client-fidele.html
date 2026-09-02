@@ -129,6 +129,8 @@ async function chargerClientsReguliers() {
 
     carte.innerHTML = `
       <h2>${emoji} ${client.nom}</h2>
+      <label style="display:block; font-size:13px; opacity:.7; margin:4px 0 8px;">Date de la commande</label>
+      <input type="date" id="date-commande-${client.id}" style="width:100%; padding:12px; border-radius:10px; border:1px solid #ddd; font-size:15px; margin-bottom:14px;">
       ${(produits || []).length === 0 ? '<p class="empty">Aucun produit enregistré.</p>' : (produits || []).map(p => `
         <div class="ligne-produit">
           <span>${p.produit}${p.unite ? ' <small style="opacity:.5;">(' + p.unite + ')</small>' : ''}</span>
@@ -137,12 +139,13 @@ async function chargerClientsReguliers() {
       `).join('')}
       <div id="autres-produits-${client.id}"></div>
       <button onclick="ajouterAutreProduit('${client.id}')" style="border:none; background:none; color:var(--accent-dark); font-size:13px; text-decoration:underline; cursor:pointer; padding:0; margin-bottom:6px;">+ Autre produit</button>
-      <button class="primary" onclick='enregistrerCommandeDuMatin(${JSON.stringify(client.id)}, ${JSON.stringify(client.nom)}, ${JSON.stringify(client.atelier)})'>Enregistrer la commande de ce matin</button>
+      <button class="primary" onclick='enregistrerCommandeDuMatin(${JSON.stringify(client.id)}, ${JSON.stringify(client.nom)}, ${JSON.stringify(client.atelier)})'>Enregistrer la commande</button>
       <button class="lien-historique" onclick="basculerHistorique('${client.id}', '${client.nom.replace(/'/g, "\\'")}')">📊 Voir l'historique</button>
       <button class="lien-historique" onclick="telechargerTotalMois('${client.nom.replace(/'/g, "\\'")}')">⬇️ Télécharger le total du mois</button>
       <div id="historique-${client.id}" style="display:none; margin-top:14px;"></div>
     `;
     conteneur.appendChild(carte);
+    document.getElementById('date-commande-' + client.id).value = dateLocale();
   }
 }
 
@@ -237,7 +240,8 @@ function ajouterAutreProduit(clientId) {
 async function enregistrerCommandeDuMatin(clientId, nomClient, atelier) {
   const { data: produits } = await supabaseClient.from('clients_reguliers_produits').select('*').eq('client_id', clientId);
   const auteur = window.profilActuel ? window.profilActuel.nom : null;
-  const aujourdhui = dateLocale();
+  const champDate = document.getElementById('date-commande-' + clientId);
+  const dateChoisie = (champDate && champDate.value) || dateLocale();
 
   const lignes = [];
   (produits || []).forEach(p => {
@@ -246,7 +250,7 @@ async function enregistrerCommandeDuMatin(clientId, nomClient, atelier) {
     if (quantite > 0) {
       lignes.push({
         client: nomClient, produit: p.produit, quantite, atelier,
-        date_retrait: aujourdhui, prise_par: auteur, notes: 'Client régulier'
+        date_retrait: dateChoisie, prise_par: auteur, notes: 'Client régulier'
       });
     }
   });
@@ -261,7 +265,7 @@ async function enregistrerCommandeDuMatin(clientId, nomClient, atelier) {
       if (produit && quantite > 0) {
         lignes.push({
           client: nomClient, produit, quantite, atelier,
-          date_retrait: aujourdhui, prise_par: auteur, notes: 'Client régulier — produit ponctuel'
+          date_retrait: dateChoisie, prise_par: auteur, notes: 'Client régulier — produit ponctuel'
         });
       }
     });
@@ -275,7 +279,7 @@ async function enregistrerCommandeDuMatin(clientId, nomClient, atelier) {
   const { error } = await supabaseClient.from('commandes').insert(lignes);
   if (error) { alert('Erreur : ' + error.message); return; }
 
-  alert('Commande du matin enregistrée (' + lignes.length + ' produit(s)) — elle apparaît maintenant dans les commandes du jour.');
+  alert('Commande enregistrée pour le ' + dateChoisie.split('-').reverse().join('/') + ' (' + lignes.length + ' produit(s)) — elle apparaît maintenant dans les commandes.');
 
   (produits || []).forEach(p => {
     const input = document.getElementById('qte-' + p.id);
@@ -283,6 +287,7 @@ async function enregistrerCommandeDuMatin(clientId, nomClient, atelier) {
   });
 
   if (conteneurAutres) conteneurAutres.innerHTML = '';
+  if (champDate) champDate.value = dateLocale();
 }
 
 let historiqueParClient = {};
