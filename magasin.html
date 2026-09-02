@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Demande magasin — Boulangerie Manager</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:wght@600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+  :root{
+    --bg:#FAF7F2; --surface:#FFFFFF; --ink:#241A14;
+    --accent:#C68A2E; --accent-dark:#9C6B1E; --radius:18px;
+  }
+  *{box-sizing:border-box;}
+  body{font-family:'Inter',Arial,sans-serif; margin:0; background:var(--bg); color:var(--ink);}
+  header{background:var(--ink); color:#fff; padding:22px 20px;}
+  header h1{margin:0; font-family:'Fraunces',serif; font-size:22px;}
+  main{padding:20px; max-width:700px; margin:auto;}
+  .card{background:var(--surface); border-radius:var(--radius); padding:20px; margin-bottom:16px; box-shadow:0 2px 8px rgba(0,0,0,.06);}
+  .card h2{margin-top:0; font-family:'Fraunces',serif; font-size:19px;}
+  .ligne-produit{display:flex; align-items:center; gap:10px; margin-bottom:10px;}
+  .ligne-produit span{flex:1; font-size:15px;}
+  .ligne-produit input[type="number"]{width:70px; text-align:center; padding:10px; border-radius:8px; border:1px solid #ddd; font-size:15px;}
+  .ligne-note{margin:-4px 0 10px 0;}
+  .ligne-note input{width:100%; padding:10px; border-radius:8px; border:1px solid #ddd; font-size:14px;}
+  button.primary{
+    margin-top:16px; width:100%; border:none; background:var(--accent); color:#241A14;
+    padding:14px; border-radius:12px; font-size:16px; font-weight:600;
+  }
+  button.primary:active{transform:scale(0.98);}
+  button.primary:disabled{opacity:.5;}
+</style>
+</head>
+<body>
+
+<header style="display:flex; align-items:center; justify-content:space-between; gap:10px;">
+  <a href="index.html" title="Accueil" style="display:inline-flex; align-items:center; justify-content:center; flex-shrink:0; width:52px; height:52px; border-radius:50%; background:var(--accent); color:#241A14; text-decoration:none; font-size:24px;">🏠</a>
+  <h1 style="margin:0; text-align:center; flex:1;">🏬 Demande magasin</h1>
+  <div style="display:flex; flex-direction:column; align-items:center; flex-shrink:0;">
+    <button onclick="effacerProfil()" title="Changer de profil" style="width:52px; height:52px; border-radius:50%; border:none; background:var(--accent); color:#241A14; font-size:26px; cursor:pointer; padding:0;">👨‍🍳</button>
+    <span id="bandeau-profil" style="font-size:10px; opacity:.8; margin-top:3px; text-align:center;"></span>
+  </div>
+</header>
+
+<main>
+  <div class="card">
+    <h2>Produits demandés au labo pâtissier</h2>
+    <div id="liste-produits"></div>
+    <button class="primary" id="btn-envoyer" onclick="envoyerDemande()">Envoyer au labo pâtissier</button>
+  </div>
+</main>
+
+<script src="supabase-config.js?v=6"></script>
+<script src="profil.js?v=6"></script>
+<script>
+
+const PRODUITS_MAGASIN = [
+  'Flan', 'Flan choco', 'Flan coco', 'Flan pistache',
+  'Quiche legumes', 'Quiche lorraine', 'Pizza',
+  'Éclair choco', 'Éclair café', 'Éclair spécialité',
+  'Paris Brest', 'Religieuses choco', 'Religieuses café', 'Salambo',
+  'Tartelette framboise', 'Tartelette framboise / passion', 'Tartelette citron',
+  'Tartelette chocolat', 'Tartelette pistache fleur d\'oranger', 'Tartelette fraises',
+  'Tarte fruits frais', 'Tarte fruits cuit',
+  'Millefeuille', 'Millefeuille caramel', 'Millefeuille poudre',
+  'Baba aux rhums'
+];
+
+function idQte(produit) {
+  return 'qte-' + produit.replace(/[^a-zA-Z0-9]/g, '_');
+}
+function idNote(produit) {
+  return 'note-' + produit.replace(/[^a-zA-Z0-9]/g, '_');
+}
+
+function afficherListe() {
+  const conteneur = document.getElementById('liste-produits');
+  conteneur.innerHTML = PRODUITS_MAGASIN.map(p => `
+    <div class="ligne-produit">
+      <span>${p}</span>
+      <input type="number" min="0" id="${idQte(p)}" placeholder="0">
+    </div>
+    ${p === 'Tarte fruits cuit' ? `
+      <div class="ligne-note">
+        <input type="text" id="${idNote(p)}" placeholder="Précision (ex: pomme, poire...)">
+      </div>` : ''}
+  `).join('');
+}
+
+async function envoyerDemande() {
+  const bouton = document.getElementById('btn-envoyer');
+  const demande_par = window.profilActuel ? window.profilActuel.nom : null;
+  const aujourdhui = dateLocale();
+
+  const lignes = [];
+  PRODUITS_MAGASIN.forEach(p => {
+    const input = document.getElementById(idQte(p));
+    const quantite = parseFloat(input.value) || 0;
+    if (quantite > 0) {
+      const noteInput = document.getElementById(idNote(p));
+      lignes.push({
+        produit: p, quantite,
+        notes: noteInput ? (noteInput.value.trim() || null) : null,
+        date_demande: aujourdhui, demande_par
+      });
+    }
+  });
+
+  if (lignes.length === 0) {
+    alert('Merci de renseigner au moins une quantité.');
+    return;
+  }
+
+  bouton.disabled = true;
+  bouton.textContent = 'Envoi...';
+
+  const { error } = await supabaseClient.from('demandes_magasin').insert(lignes);
+
+  bouton.disabled = false;
+  bouton.textContent = 'Envoyer au labo pâtissier';
+
+  if (error) { alert('Erreur : ' + error.message); return; }
+
+  alert('Demande envoyée au labo pâtissier (' + lignes.length + ' produit(s)).');
+  afficherListe();
+}
+
+initProfil((profil) => {
+  window.profilActuel = profil;
+  afficherListe();
+}, 'vente');
+
+</script>
+</body>
+</html>

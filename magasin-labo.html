@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Magasin — Boulangerie Manager</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:wght@600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+  :root{
+    --bg:#FAF7F2; --surface:#FFFFFF; --ink:#241A14;
+    --accent:#C68A2E; --accent-dark:#9C6B1E; --radius:18px;
+  }
+  *{box-sizing:border-box;}
+  body{font-family:'Inter',Arial,sans-serif; margin:0; background:var(--bg); color:var(--ink);}
+  header{background:var(--ink); color:#fff; padding:22px 20px;}
+  header h1{margin:0; font-family:'Fraunces',serif; font-size:22px;}
+  main{padding:20px; max-width:700px; margin:auto;}
+  .card{background:var(--surface); border-radius:var(--radius); padding:20px; margin-bottom:16px; box-shadow:0 2px 8px rgba(0,0,0,.06);}
+  .card h2{margin-top:0; font-family:'Fraunces',serif; font-size:19px;}
+  .demande{display:flex; align-items:center; gap:14px; padding:14px 0; border-bottom:1px solid #eee;}
+  .demande:last-child{border-bottom:none;}
+  .demande small{opacity:.6;}
+  .empty{opacity:.5; font-size:14px; padding:10px 0;}
+  button.small{border:none; background:var(--ink); color:#fff; padding:10px 16px; border-radius:10px; font-size:14px; flex-shrink:0;}
+  .done{color:var(--accent-dark, #9C6B1E); font-weight:600; font-size:14px;}
+</style>
+</head>
+<body>
+
+<header style="display:flex; align-items:center; justify-content:space-between; gap:10px;">
+  <a href="index.html" title="Accueil" style="display:inline-flex; align-items:center; justify-content:center; flex-shrink:0; width:52px; height:52px; border-radius:50%; background:var(--accent); color:#241A14; text-decoration:none; font-size:24px;">🏠</a>
+  <h1 style="margin:0; text-align:center; flex:1;">🏬 Magasin</h1>
+  <div style="display:flex; flex-direction:column; align-items:center; flex-shrink:0;">
+    <button onclick="effacerProfil()" title="Changer de profil" style="width:52px; height:52px; border-radius:50%; border:none; background:var(--accent); color:#241A14; font-size:26px; cursor:pointer; padding:0;">👨‍🍳</button>
+    <span id="bandeau-profil" style="font-size:10px; opacity:.8; margin-top:3px; text-align:center;"></span>
+  </div>
+</header>
+
+<main>
+  <div class="card">
+    <h2>Ce que les vendeuses demandent</h2>
+    <div id="liste-demandes"><p class="empty">Chargement...</p></div>
+  </div>
+</main>
+
+<script src="supabase-config.js?v=6"></script>
+<script src="profil.js?v=6"></script>
+<script>
+
+async function chargerDemandes() {
+  const conteneur = document.getElementById('liste-demandes');
+  const { data, error } = await supabaseClient
+    .from('demandes_magasin')
+    .select('*')
+    .eq('fait', false)
+    .order('created_at', { ascending: true });
+
+  if (error) { conteneur.innerHTML = `<p class="empty">Erreur : ${error.message}</p>`; return; }
+  if (!data || data.length === 0) { conteneur.innerHTML = `<p class="empty">Aucune demande en attente. ✅</p>`; return; }
+
+  conteneur.innerHTML = data.map(d => `
+    <div class="demande">
+      <span style="flex:1;">
+        <strong>${d.produit}</strong> — x${d.quantite}${d.notes ? ' (' + d.notes + ')' : ''}<br>
+        <small>${d.demande_par ? 'Demandé par ' + d.demande_par : ''}</small>
+      </span>
+      <button class="small" onclick="marquerFait('${d.id}', this)">Fait</button>
+    </div>
+  `).join('');
+}
+
+async function marquerFait(id, bouton) {
+  bouton.outerHTML = '<span class="done">✅ Fait</span>';
+  const { error } = await supabaseClient.from('demandes_magasin').update({ fait: true }).eq('id', id);
+  if (error) alert('Erreur : ' + error.message);
+}
+
+initProfil((profil) => {
+  window.profilActuel = profil;
+  chargerDemandes();
+
+  supabaseClient
+    .channel('demandes-magasin')
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'demandes_magasin' }, chargerDemandes)
+    .subscribe();
+}, 'patisserie');
+
+</script>
+</body>
+</html>

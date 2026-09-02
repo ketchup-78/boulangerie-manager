@@ -85,6 +85,10 @@
       <span style="font-size:24px;">🏭</span>
       <span>Production</span>
     </a>
+    <a href="magasin-labo.html" id="lien-magasin" class="raccourci" style="display:none;">
+      <span style="font-size:24px;">🏬</span>
+      <span>Magasin</span>
+    </a>
   </div>
   <div class="card" id="card-ajout-tache">
     <h2>Ajouter une tâche</h2>
@@ -141,6 +145,10 @@ document.getElementById('lien-haccp').href = 'haccp.html?atelier=' + atelier;
 if (atelier === 'boulangerie') {
   document.getElementById('lien-production').style.display = 'flex';
   document.getElementById('lien-casino').style.display = 'flex';
+}
+
+if (atelier === 'patisserie') {
+  document.getElementById('lien-magasin').style.display = 'flex';
 }
 
 // ---------- TÂCHES ----------
