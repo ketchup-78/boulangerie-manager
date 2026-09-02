@@ -78,7 +78,14 @@ async function chargerDemandes() {
 }
 
 async function marquerFait(id, bouton) {
-  bouton.outerHTML = '<span class="done">✅ Fait</span>';
+  const ligne = bouton.closest('.demande');
+  if (ligne) ligne.remove();
+
+  const conteneur = document.getElementById('liste-demandes');
+  if (!conteneur.querySelector('.demande')) {
+    conteneur.innerHTML = `<p class="empty">Aucune demande en attente. ✅</p>`;
+  }
+
   const { error } = await supabaseClient.from('demandes_magasin').update({ fait: true }).eq('id', id);
   if (error) alert('Erreur : ' + error.message);
 }
