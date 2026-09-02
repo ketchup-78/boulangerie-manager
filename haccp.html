@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>HACCP — Étiquettes — Boulangerie Manager</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:wght@600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+  :root{
+    --bg:#FAF7F2; --surface:#FFFFFF; --ink:#241A14;
+    --accent:#C68A2E; --accent-dark:#9C6B1E; --danger:#B00020; --radius:18px;
+  }
+  *{box-sizing:border-box;}
+  body{font-family:'Inter',Arial,sans-serif; margin:0; background:var(--bg); color:var(--ink);}
+  header{background:var(--ink); color:#fff; padding:22px 20px;}
+  header h1{margin:0; font-family:'Fraunces',serif; font-size:22px;}
+  main{padding:20px; max-width:700px; margin:auto;}
+  .card{background:var(--surface); border-radius:var(--radius); padding:20px; margin-bottom:16px; box-shadow:0 2px 8px rgba(0,0,0,.06);}
+  .card h2{margin-top:0; font-family:'Fraunces',serif; font-size:19px;}
+  input{width:100%; padding:14px; border-radius:12px; border:1px solid #ddd; font-size:16px; font-family:inherit;}
+  .tuile-produit{
+    width:100%; text-align:left; background:#fff; border:none; border-radius:14px; padding:16px;
+    margin-bottom:10px; box-shadow:0 2px 8px rgba(0,0,0,.06); cursor:pointer; font-family:inherit;
+  }
+  .tuile-produit:active{transform:scale(0.98);}
+  .tuile-produit strong{font-family:'Fraunces',serif; font-size:16px;}
+  .tuile-produit small{display:block; opacity:.6; margin-top:2px;}
+  .empty{opacity:.5; font-size:14px; padding:10px 0;}
+
+  #overlay-etiquette{position:fixed; inset:0; background:rgba(36,26,20,.7); display:none; align-items:center; justify-content:center; z-index:9999; padding:20px;}
+  #etiquette-impression{
+    background:#fff; border-radius:12px; padding:24px; max-width:340px; width:100%;
+    border:3px solid var(--ink); font-family:'Inter',Arial,sans-serif;
+  }
+  #etiquette-impression h3{font-family:'Fraunces',serif; font-size:22px; margin:0 0 12px; text-align:center;}
+  #etiquette-impression .ligne{display:flex; justify-content:space-between; padding:6px 0; border-bottom:1px solid #eee; font-size:14px;}
+  #etiquette-impression .ligne:last-child{border-bottom:none;}
+  #etiquette-impression .allergenes{margin-top:10px; padding:10px; background:#fdeaea; border-radius:8px; font-size:13px; font-weight:600; color:var(--danger);}
+
+  @media print {
+    body *{visibility:hidden;}
+    #etiquette-impression, #etiquette-impression *{visibility:visible;}
+    #etiquette-impression{position:fixed; top:0; left:0; border:none; width:100%;}
+    #overlay-etiquette{position:static; background:none;}
+  }
+</style>
+</head>
+<body>
+
+<header style="display:flex; align-items:center; justify-content:space-between; gap:10px;">
+  <a href="index.html" title="Accueil" style="display:inline-flex; align-items:center; justify-content:center; flex-shrink:0; width:52px; height:52px; border-radius:50%; background:var(--accent); color:#241A14; text-decoration:none; font-size:24px;">🏠</a>
+  <h1 style="margin:0; text-align:center; flex:1;">🏷️ Étiquettes HACCP</h1>
+  <div style="display:flex; flex-direction:column; align-items:center; flex-shrink:0;">
+    <button onclick="effacerProfil()" title="Changer de profil" style="width:52px; height:52px; border-radius:50%; border:none; background:var(--accent); color:#241A14; font-size:26px; cursor:pointer; padding:0;">👨‍🍳</button>
+    <span id="bandeau-profil" style="font-size:10px; opacity:.8; margin-top:3px; text-align:center;"></span>
+  </div>
+</header>
+
+<main>
+  <div class="card">
+    <h2>🔍 Chercher une préparation</h2>
+    <input id="recherche-haccp" placeholder="ex: crème pâtissière..." oninput="afficherResultats()" autocomplete="off">
+  </div>
+
+  <div class="card">
+    <div id="liste-produits-haccp"></div>
+  </div>
+</main>
+
+<div id="overlay-etiquette">
+  <div>
+    <div id="etiquette-impression">
+      <h3 id="etq-nom"></h3>
+      <div class="ligne"><span>Fabriqué le</span><strong id="etq-fabrication"></strong></div>
+      <div class="ligne"><span>À consommer avant</span><strong id="etq-dlc"></strong></div>
+      <div class="ligne"><span>Fait par</span><strong id="etq-auteur"></strong></div>
+      <div class="allergenes" id="etq-allergenes" style="display:none;"></div>
+    </div>
+    <div style="display:flex; gap:10px; margin-top:16px;">
+      <button onclick="window.print()" style="flex:1; border:none; background:var(--accent); color:#241A14; padding:14px; border-radius:12px; font-size:16px; font-weight:600;">🖨️ Imprimer</button>
+      <button onclick="fermerEtiquette()" style="flex:1; border:1px solid #ccc; background:#fff; color:var(--ink); padding:14px; border-radius:12px; font-size:16px;">Fermer</button>
+    </div>
+  </div>
+</div>
+
+<script src="supabase-config.js?v=6"></script>
+<script src="profil.js?v=6"></script>
+<script>
+
+const params = new URLSearchParams(window.location.search);
+const atelier = params.get('atelier') === 'patisserie' ? 'patisserie' : 'boulangerie';
+
+// Bibliothèque intégrée — durées de conservation courantes du métier (à ajuster selon ton PMS)
+const BIBLIOTHEQUE_HACCP = [
+  { nom: 'Crème pâtissière', jours: 3, allergenes: 'Lait, Œufs, Gluten' },
+  { nom: 'Crème anglaise', jours: 3, allergenes: 'Lait, Œufs' },
+  { nom: 'Crème chantilly / fouettée', jours: 2, allergenes: 'Lait' },
+  { nom: 'Crème mousseline', jours: 2, allergenes: 'Lait, Œufs' },
+  { nom: 'Crème diplomate', jours: 2, allergenes: 'Lait, Œufs, Gluten' },
+  { nom: 'Crème au beurre', jours: 3, allergenes: 'Lait, Œufs' },
+  { nom: "Crème d'amande", jours: 3, allergenes: 'Fruits à coque, Œufs, Lait' },
+  { nom: 'Frangipane', jours: 3, allergenes: 'Fruits à coque, Œufs, Lait, Gluten' },
+  { nom: 'Ganache chocolat', jours: 5, allergenes: 'Lait, Soja' },
+  { nom: 'Mousse au chocolat', jours: 2, allergenes: 'Œufs, Lait, Soja' },
+  { nom: 'Bavaroise', jours: 2, allergenes: 'Lait, Œufs' },
+  { nom: 'Crème brûlée (appareil)', jours: 2, allergenes: 'Lait, Œufs' },
+  { nom: 'Glaçage miroir', jours: 5, allergenes: 'Lait' },
+  { nom: 'Confiture maison', jours: 30, allergenes: '' },
+  { nom: 'Compote de fruits', jours: 5, allergenes: '' },
+  { nom: 'Sirop (imbibage)', jours: 15, allergenes: '' },
+  { nom: 'Pâte à choux garnie', jours: 1, allergenes: 'Gluten, Œufs, Lait' },
+  { nom: 'Coulis de fruits', jours: 4, allergenes: '' },
+  { nom: 'Pâte feuilletée crue', jours: 3, allergenes: 'Gluten, Lait' },
+  { nom: 'Pâte levée crue', jours: 2, allergenes: 'Gluten' },
+  { nom: 'Levain', jours: 7, allergenes: 'Gluten' }
+];
+
+function normaliser(texte) {
+  return texte.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+}
+
+function afficherResultats() {
+  const recherche = normaliser(document.getElementById('recherche-haccp').value.trim());
+  const conteneur = document.getElementById('liste-produits-haccp');
+
+  const resultats = recherche
+    ? BIBLIOTHEQUE_HACCP.filter(p => normaliser(p.nom).includes(recherche))
+    : BIBLIOTHEQUE_HACCP;
+
+  if (resultats.length === 0) {
+    conteneur.innerHTML = `<p class="empty">Aucune préparation trouvée. Demande à Claude de l'ajouter à la bibliothèque si besoin.</p>`;
+    return;
+  }
+
+  conteneur.innerHTML = resultats.map(p => `
+    <button class="tuile-produit" onclick='ouvrirEtiquette(${JSON.stringify(p)})'>
+      <strong>${p.nom}</strong>
+      <small>Conservation ${p.jours} jour(s)${p.allergenes ? ' · Allergènes : ' + p.allergenes : ''}</small>
+    </button>
+  `).join('');
+}
+
+function formaterDateAffichage(date) {
+  return date.toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric' });
+}
+
+async function ouvrirEtiquette(produit) {
+  const aujourdhui = new Date();
+  const dlc = new Date(aujourdhui);
+  dlc.setDate(dlc.getDate() + produit.jours);
+
+  const auteur = window.profilActuel ? window.profilActuel.nom : '—';
+
+  document.getElementById('etq-nom').textContent = produit.nom;
+  document.getElementById('etq-fabrication').textContent = formaterDateAffichage(aujourdhui);
+  document.getElementById('etq-dlc').textContent = formaterDateAffichage(dlc);
+  document.getElementById('etq-auteur').textContent = auteur;
+
+  const zoneAllergenes = document.getElementById('etq-allergenes');
+  if (produit.allergenes) {
+    zoneAllergenes.textContent = '⚠️ Allergènes : ' + produit.allergenes;
+    zoneAllergenes.style.display = 'block';
+  } else {
+    zoneAllergenes.style.display = 'none';
+  }
+
+  document.getElementById('overlay-etiquette').style.display = 'flex';
+
+  await supabaseClient.from('etiquettes_imprimees').insert([{
+    produit: produit.nom,
+    date_fabrication: dateLocale(aujourdhui),
+    dlc: dateLocale(dlc),
+    allergenes: produit.allergenes,
+    fait_par: auteur,
+    atelier
+  }]);
+}
+
+function fermerEtiquette() {
+  document.getElementById('overlay-etiquette').style.display = 'none';
+}
+
+initProfil((profil) => {
+  window.profilActuel = profil;
+  afficherResultats();
+}, atelier);
+
+</script>
+</body>
+</html>
