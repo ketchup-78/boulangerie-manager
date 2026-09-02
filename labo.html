@@ -90,22 +90,6 @@
       <span>Commande magasin</span>
     </a>
   </div>
-  <div class="card" id="card-ajout-tache">
-    <h2>Ajouter une tâche</h2>
-    <div id="raccourcis-taches" style="display:flex; flex-wrap:wrap; gap:6px; margin-bottom:12px;"></div>
-    <label>Description</label>
-    <input id="description-tache" placeholder="ex: Lancer le pétrin">
-    <label>Assigner à (optionnel)</label>
-    <select id="assigne-tache">
-      <option value="">Tout le monde</option>
-    </select>
-    <button class="primary" onclick="ajouterTache()">Ajouter la tâche</button>
-  </div>
-
-  <div class="card">
-    <h2>🧹 Tâches</h2>
-    <div id="liste-taches"><p class="empty">Chargement...</p></div>
-  </div>
 
   <div class="card">
     <h2>🗓️ Vue de la semaine</h2>
@@ -121,6 +105,23 @@
       Voir aussi les commandes déjà prêtes
     </label>
     <div id="liste-commandes" style="margin-top:10px;"><p class="empty">Chargement...</p></div>
+  </div>
+
+  <div class="card" id="card-ajout-tache">
+    <h2>Ajouter une tâche</h2>
+    <div id="raccourcis-taches" style="display:flex; flex-wrap:wrap; gap:6px; margin-bottom:12px;"></div>
+    <label>Description</label>
+    <input id="description-tache" placeholder="ex: Lancer le pétrin">
+    <label>Assigner à (optionnel)</label>
+    <select id="assigne-tache">
+      <option value="">Tout le monde</option>
+    </select>
+    <button class="primary" onclick="ajouterTache()">Ajouter la tâche</button>
+  </div>
+
+  <div class="card">
+    <h2>🧹 Tâches</h2>
+    <div id="liste-taches"><p class="empty">Chargement...</p></div>
   </div>
 
   <div class="card">
