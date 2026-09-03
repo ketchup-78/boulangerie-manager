@@ -132,14 +132,14 @@ async function ajouterProduit() {
   let photo_url = null;
   if (fichier) {
     const nomFichier = Date.now() + '-' + fichier.name.normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-zA-Z0-9._-]/g, '_');
-    const { error: erreurUpload } = await supabaseClient.storage.from('catalogue').upload(nomFichier, fichier);
+    const { error: erreurUpload } = await supabaseClient.storage.from('Catalogue').upload(nomFichier, fichier);
     if (erreurUpload) {
       alert("Erreur lors de l'envoi de la photo : " + erreurUpload.message);
       bouton.disabled = false;
       bouton.textContent = 'Ajouter au catalogue';
       return;
     }
-    const { data: urlData } = supabaseClient.storage.from('catalogue').getPublicUrl(nomFichier);
+    const { data: urlData } = supabaseClient.storage.from('Catalogue').getPublicUrl(nomFichier);
     photo_url = urlData.publicUrl;
   }
 
