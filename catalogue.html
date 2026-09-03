@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Catalogue — Boulangerie Manager</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:wght@600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+  :root{
+    --bg:#FAF7F2; --surface:#FFFFFF; --ink:#241A14;
+    --accent:#C68A2E; --accent-dark:#9C6B1E; --danger:#B00020; --radius:18px;
+  }
+  *{box-sizing:border-box;}
+  body{font-family:'Inter',Arial,sans-serif; margin:0; background:var(--bg); color:var(--ink);}
+  header{background:var(--ink); color:#fff; padding:22px 20px;}
+  header h1{margin:0; font-family:'Fraunces',serif; font-size:22px;}
+  main{padding:20px; max-width:700px; margin:auto;}
+  .card{background:var(--surface); border-radius:var(--radius); padding:20px; margin-bottom:16px; box-shadow:0 2px 8px rgba(0,0,0,.06);}
+  .card h2{margin-top:0; font-family:'Fraunces',serif; font-size:19px;}
+  label{display:block; font-size:13px; opacity:.7; margin:10px 0 4px;}
+  input, textarea{width:100%; padding:12px; border-radius:10px; border:1px solid #ddd; font-size:15px; font-family:inherit;}
+  textarea{min-height:70px; resize:vertical;}
+  button.primary{
+    margin-top:16px; width:100%; border:none; background:var(--accent); color:#241A14;
+    padding:14px; border-radius:12px; font-size:16px; font-weight:600;
+  }
+  button.primary:active{transform:scale(0.98);}
+  button.primary:disabled{opacity:.5;}
+  .fiche{background:#fff; border-radius:16px; margin-bottom:14px; overflow:hidden; box-shadow:0 2px 8px rgba(0,0,0,.06);}
+  .fiche img{width:100%; height:160px; object-fit:cover; display:block; background:#eee;}
+  .fiche .contenu{padding:14px 16px;}
+  .fiche h3{margin:0 0 6px; font-family:'Fraunces',serif; font-size:17px;}
+  .fiche p{margin:0; font-size:14px; opacity:.85; line-height:1.4;}
+  .fiche .allergenes{margin-top:8px; font-size:13px; font-weight:600; color:var(--danger);}
+  .empty{opacity:.5; font-size:14px; padding:10px 0;}
+</style>
+</head>
+<body>
+
+<header style="display:flex; align-items:center; justify-content:space-between; gap:10px;">
+  <a href="index.html" title="Accueil" style="display:inline-flex; align-items:center; justify-content:center; flex-shrink:0; width:52px; height:52px; border-radius:50%; background:var(--accent); color:#241A14; text-decoration:none; font-size:24px;">🏠</a>
+  <h1 style="margin:0; text-align:center; flex:1;">🖼️ Catalogue produits</h1>
+  <div style="display:flex; flex-direction:column; align-items:center; flex-shrink:0;">
+    <button onclick="effacerProfil()" title="Changer de profil" style="width:52px; height:52px; border-radius:50%; border:none; background:var(--accent); color:#241A14; font-size:26px; cursor:pointer; padding:0;">👨‍🍳</button>
+    <span id="bandeau-profil" style="font-size:10px; opacity:.8; margin-top:3px; text-align:center;"></span>
+  </div>
+</header>
+
+<main>
+  <div class="card" id="card-ajout-produit">
+    <h2>➕ Ajouter un produit</h2>
+    <label>Nom</label>
+    <input id="nom-produit" placeholder="ex: Tarte aux fraises">
+    <label>Description</label>
+    <textarea id="description-produit" placeholder="ex: Pâte sablée, crème pâtissière vanille, fraises fraîches"></textarea>
+    <label>Allergènes</label>
+    <input id="allergenes-produit" placeholder="ex: Lait, Œufs, Gluten">
+    <label>Photo</label>
+    <input id="photo-produit" type="file" accept="image/*" capture="environment">
+    <button class="primary" id="btn-ajouter-produit" onclick="ajouterProduit()">Ajouter au catalogue</button>
+  </div>
+
+  <div class="card">
+    <label>🔍 Rechercher un produit</label>
+    <input id="recherche-catalogue" placeholder="ex: tarte..." oninput="afficherCatalogue()">
+  </div>
+
+  <div id="liste-catalogue"><p class="empty">Chargement...</p></div>
+</main>
+
+<script src="supabase-config.js?v=6"></script>
+<script src="profil.js?v=6"></script>
+<script>
+
+let tousLesProduits = [];
+
+function normaliser(texte) {
+  return texte.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+}
+
+async function chargerCatalogue() {
+  const { data, error } = await supabaseClient.from('catalogue_produits').select('*').order('nom');
+  if (error) { document.getElementById('liste-catalogue').innerHTML = `<p class="empty">Erreur : ${error.message}</p>`; return; }
+  tousLesProduits = data || [];
+  afficherCatalogue();
+}
+
+function afficherCatalogue() {
+  const recherche = normaliser(document.getElementById('recherche-catalogue').value.trim());
+  const conteneur = document.getElementById('liste-catalogue');
+
+  const resultats = recherche
+    ? tousLesProduits.filter(p => normaliser(p.nom).includes(recherche))
+    : tousLesProduits;
+
+  if (resultats.length === 0) {
+    conteneur.innerHTML = `<p class="empty">${tousLesProduits.length === 0 ? 'Aucun produit dans le catalogue pour l\'instant.' : 'Aucun résultat.'}</p>`;
+    return;
+  }
+
+  conteneur.innerHTML = resultats.map(p => `
+    <div class="fiche">
+      ${p.photo_url ? `<img src="${p.photo_url}" alt="${p.nom}">` : ''}
+      <div class="contenu">
+        <h3>${p.nom}</h3>
+        ${p.description ? `<p>${p.description}</p>` : ''}
+        ${p.allergenes ? `<div class="allergenes">⚠️ Allergènes : ${p.allergenes}</div>` : ''}
+      </div>
+    </div>
+  `).join('');
+}
+
+async function ajouterProduit() {
+  if (!window.profilActuel || window.profilActuel.role !== 'chef') {
+    alert('Seul le chef peut modifier le catalogue.');
+    return;
+  }
+
+  const bouton = document.getElementById('btn-ajouter-produit');
+  const nom = document.getElementById('nom-produit').value.trim();
+  const description = document.getElementById('description-produit').value.trim() || null;
+  const allergenes = document.getElementById('allergenes-produit').value.trim() || null;
+  const fichier = document.getElementById('photo-produit').files[0];
+
+  if (!nom) { alert('Merci de donner un nom au produit.'); return; }
+
+  bouton.disabled = true;
+  bouton.textContent = 'Enregistrement...';
+
+  let photo_url = null;
+  if (fichier) {
+    const nomFichier = Date.now() + '-' + fichier.name.normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-zA-Z0-9._-]/g, '_');
+    const { error: erreurUpload } = await supabaseClient.storage.from('catalogue').upload(nomFichier, fichier);
+    if (erreurUpload) {
+      alert("Erreur lors de l'envoi de la photo : " + erreurUpload.message);
+      bouton.disabled = false;
+      bouton.textContent = 'Ajouter au catalogue';
+      return;
+    }
+    const { data: urlData } = supabaseClient.storage.from('catalogue').getPublicUrl(nomFichier);
+    photo_url = urlData.publicUrl;
+  }
+
+  const { error } = await supabaseClient.from('catalogue_produits').insert([
+    { nom, description, allergenes, photo_url }
+  ]);
+
+  bouton.disabled = false;
+  bouton.textContent = 'Ajouter au catalogue';
+
+  if (error) { alert('Erreur : ' + error.message); return; }
+
+  document.getElementById('nom-produit').value = '';
+  document.getElementById('description-produit').value = '';
+  document.getElementById('allergenes-produit').value = '';
+  document.getElementById('photo-produit').value = '';
+  chargerCatalogue();
+}
+
+initProfil((profil) => {
+  window.profilActuel = profil;
+  if (profil.role !== 'chef') {
+    document.getElementById('card-ajout-produit').style.display = 'none';
+  }
+  chargerCatalogue();
+});
+
+</script>
+</body>
+</html>
