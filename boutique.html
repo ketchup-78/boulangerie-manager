@@ -82,15 +82,6 @@
     <label>Téléphone (optionnel)</label>
     <input id="telephone" type="tel" placeholder="ex: 06 12 34 56 78">
 
-    <label>Produit</label>
-    <input id="produit" placeholder="ex: Tarte aux fraises">
-
-    <label>Atelier concerné</label>
-    <select id="atelier-commande">
-      <option value="patisserie">🧁 Pâtisserie (gâteau, tarte, viennoiserie...)</option>
-      <option value="boulangerie">🍞 Boulangerie (pain...)</option>
-    </select>
-
     <div class="row">
       <div>
         <label>Date de retrait</label>
@@ -102,18 +93,28 @@
       </div>
     </div>
 
-    <div class="row">
-      <div>
-        <label>Quantité</label>
-        <input id="quantite" type="number" min="1" value="1">
-      </div>
-      <div></div>
-    </div>
-
     <label>Notes (allergies, précisions...)</label>
     <input id="notes" placeholder="optionnel">
 
-    <button class="primary" onclick="ajouterCommande()">Ajouter la commande</button>
+    <h3 style="font-family:'Fraunces',serif; font-size:16px; margin:20px 0 8px;">🛒 Panier</h3>
+    <div id="panier-commande"><p class="empty">Aucun produit ajouté.</p></div>
+
+    <button onclick="ouvrirCatalogueCommande()" style="width:100%; border:none; background:var(--ink); color:#fff; padding:14px; border-radius:12px; font-size:15px; font-weight:600; margin-top:6px;">🖼️ Parcourir le catalogue</button>
+
+    <div style="margin-top:16px; padding-top:16px; border-top:1px solid #eee;">
+      <label>Ou ajouter un produit manuellement</label>
+      <div class="row">
+        <input id="produit-manuel" placeholder="Produit" style="flex:2;">
+        <input id="quantite-manuel" type="number" min="1" value="1" style="width:70px;">
+      </div>
+      <select id="atelier-manuel" style="margin-top:8px;">
+        <option value="patisserie">🧁 Pâtisserie</option>
+        <option value="boulangerie">🍞 Boulangerie</option>
+      </select>
+      <button onclick="ajouterAuPanierManuel()" style="width:100%; margin-top:8px; border:1px solid #ddd; background:#fff; color:var(--ink); padding:10px; border-radius:10px; font-size:14px;">+ Ajouter au panier</button>
+    </div>
+
+    <button class="primary" onclick="validerCommande()">Valider la commande</button>
   </div>
 
   <div class="card">
@@ -487,19 +488,141 @@ async function genererCommandesRecurrentes() {
   }
 }
 
-async function ajouterCommande() {
+let panier = [];
+
+function afficherPanier() {
+  const conteneur = document.getElementById('panier-commande');
+  if (panier.length === 0) { conteneur.innerHTML = '<p class="empty">Aucun produit ajouté.</p>'; return; }
+
+  conteneur.innerHTML = panier.map((item, i) => `
+    <div style="display:flex; align-items:center; gap:10px; padding:8px 0; border-bottom:1px solid #eee;">
+      <span style="flex:1;">${item.produit} <small style="opacity:.5;">${item.atelier === 'patisserie' ? '🧁' : '🍞'}</small></span>
+      <input type="number" min="1" value="${item.quantite}" style="width:60px; padding:8px; border-radius:8px; border:1px solid #ddd; text-align:center;" onchange="changerQuantitePanier(${i}, this.value)">
+      <button onclick="retirerDuPanier(${i})" style="border:none; background:none; font-size:18px; padding:4px;">🗑️</button>
+    </div>
+  `).join('');
+}
+
+function changerQuantitePanier(index, valeur) {
+  panier[index].quantite = parseInt(valeur) || 1;
+}
+
+function retirerDuPanier(index) {
+  panier.splice(index, 1);
+  afficherPanier();
+}
+
+function ajouterAuPanierManuel() {
+  const produit = document.getElementById('produit-manuel').value.trim();
+  const quantite = parseInt(document.getElementById('quantite-manuel').value) || 1;
+  const atelier = document.getElementById('atelier-manuel').value;
+
+  if (!produit) { alert('Merci d\'indiquer un produit.'); return; }
+
+  panier.push({ produit, quantite, atelier });
+  document.getElementById('produit-manuel').value = '';
+  document.getElementById('quantite-manuel').value = 1;
+  afficherPanier();
+}
+
+function normaliserTexteCatalogue(t) {
+  return t.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+}
+
+async function ouvrirCatalogueCommande() {
+  const overlay = document.createElement('div');
+  overlay.id = 'overlay-catalogue';
+  overlay.style.cssText = 'position:fixed;inset:0;background:rgba(36,26,20,.9);z-index:9997;display:flex;flex-direction:column;padding:16px;overflow-y:auto;';
+  overlay.innerHTML = `
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px; gap:10px;">
+      <h2 style="color:#fff; font-family:'Fraunces',serif; margin:0; font-size:20px;">🖼️ Catalogue</h2>
+      <button onclick="fermerCatalogueCommande()" style="border:none; background:#fff; color:#241A14; padding:10px 18px; border-radius:10px; font-weight:600; flex-shrink:0;">✕ Fermer</button>
+    </div>
+    <input id="recherche-catalogue-commande" placeholder="Rechercher un produit..." oninput="filtrerCatalogueCommande()" style="width:100%; padding:14px; border-radius:12px; border:none; font-size:16px; margin-bottom:14px;">
+    <div id="grille-catalogue-commande"><p style="color:#fff; opacity:.7;">Chargement...</p></div>
+  `;
+  document.body.appendChild(overlay);
+
+  const { data, error } = await supabaseClient.from('catalogue_produits').select('*').order('nom');
+  if (error) {
+    document.getElementById('grille-catalogue-commande').innerHTML = `<p style="color:#fff;">Erreur : ${error.message}</p>`;
+    return;
+  }
+  window.catalogueDonnees = data || [];
+  filtrerCatalogueCommande();
+}
+
+function filtrerCatalogueCommande() {
+  const recherche = normaliserTexteCatalogue(document.getElementById('recherche-catalogue-commande').value.trim());
+  const conteneur = document.getElementById('grille-catalogue-commande');
+  const resultats = recherche
+    ? window.catalogueDonnees.filter(p => normaliserTexteCatalogue(p.nom).includes(recherche))
+    : window.catalogueDonnees;
+
+  if (resultats.length === 0) {
+    conteneur.innerHTML = '<p style="color:#fff; opacity:.7;">Aucun produit trouvé dans le catalogue.</p>';
+    return;
+  }
+
+  conteneur.innerHTML = resultats.map(p => `
+    <div onclick='ouvrirFicheCatalogueCommande(${JSON.stringify(p)})' style="background:#fff; border-radius:14px; margin-bottom:10px; overflow:hidden; cursor:pointer;">
+      ${p.photo_url ? `<img src="${p.photo_url}" style="width:100%; height:120px; object-fit:cover; display:block;">` : ''}
+      <div style="padding:10px 14px;">
+        <strong style="font-family:'Fraunces',serif;">${p.nom}</strong>
+      </div>
+    </div>
+  `).join('');
+}
+
+function ouvrirFicheCatalogueCommande(produit) {
+  const fiche = document.createElement('div');
+  fiche.id = 'fiche-catalogue-commande';
+  fiche.style.cssText = 'position:fixed; inset:0; background:rgba(0,0,0,.5); z-index:9998; display:flex; align-items:center; justify-content:center; padding:20px;';
+  fiche.innerHTML = `
+    <div style="background:#fff; border-radius:16px; max-width:360px; width:100%; overflow:hidden;">
+      ${produit.photo_url ? `<img src="${produit.photo_url}" style="width:100%; height:180px; object-fit:cover; display:block;">` : ''}
+      <div style="padding:18px;">
+        <h3 style="font-family:'Fraunces',serif; margin:0 0 8px;">${produit.nom}</h3>
+        ${produit.description ? `<p style="font-size:14px; opacity:.8; margin:0 0 10px;">${produit.description}</p>` : ''}
+        ${produit.allergenes ? `<div style="font-size:13px; font-weight:600; color:var(--danger, #B00020); margin-bottom:14px;">⚠️ ${produit.allergenes}</div>` : ''}
+        <div style="display:flex; gap:10px;">
+          <button onclick='ajouterCatalogueAuPanier(${JSON.stringify(produit.nom)})' style="flex:1; border:none; background:var(--accent); color:#241A14; padding:12px; border-radius:10px; font-weight:600;">+ Ajouter</button>
+          <button onclick="document.getElementById('fiche-catalogue-commande').remove()" style="flex:1; border:1px solid #ccc; background:#fff; padding:12px; border-radius:10px;">Retour</button>
+        </div>
+      </div>
+    </div>
+  `;
+  document.getElementById('overlay-catalogue').appendChild(fiche);
+}
+
+function ajouterCatalogueAuPanier(nomProduit) {
+  panier.push({ produit: nomProduit, quantite: 1, atelier: 'patisserie' });
+  afficherPanier();
+  const fiche = document.getElementById('fiche-catalogue-commande');
+  if (fiche) fiche.remove();
+  fermerCatalogueCommande();
+}
+
+function fermerCatalogueCommande() {
+  const overlay = document.getElementById('overlay-catalogue');
+  if (overlay) overlay.remove();
+}
+
+async function validerCommande() {
   const client = document.getElementById('client').value.trim();
   const telephone = document.getElementById('telephone').value.trim() || null;
-  const produit = document.getElementById('produit').value.trim();
-  const atelier = document.getElementById('atelier-commande').value;
-  const quantite = parseInt(document.getElementById('quantite').value) || 1;
   const date_retrait = document.getElementById('date_retrait').value || dateLocale();
   const heure_retrait = document.getElementById('heure_retrait').value || null;
   const notes = document.getElementById('notes').value.trim() || null;
   const prise_par = window.profilActuel ? window.profilActuel.nom : null;
 
-  if (!client || !produit) {
-    alert('Merci de remplir au moins le client et le produit.');
+  if (!client) {
+    alert('Merci de renseigner le nom du client.');
+    return;
+  }
+
+  if (panier.length === 0) {
+    alert('Le panier est vide — ajoute au moins un produit.');
     return;
   }
 
@@ -508,23 +631,30 @@ async function ajouterCommande() {
     return;
   }
 
-  const { error } = await supabaseClient.from('commandes').insert([
-    { client, telephone, produit, atelier, quantite, date_retrait, heure_retrait, notes, prise_par }
-  ]);
+  const lignes = panier.map(item => ({
+    client, telephone, produit: item.produit, atelier: item.atelier,
+    quantite: item.quantite, date_retrait, heure_retrait, notes, prise_par
+  }));
+
+  const { error } = await supabaseClient.from('commandes').insert(lignes);
 
   if (error) {
     alert('Erreur : ' + error.message);
     return;
   }
 
+  const nombreProduits = lignes.length;
+
   document.getElementById('client').value = '';
   document.getElementById('telephone').value = '';
-  document.getElementById('produit').value = '';
-  document.getElementById('quantite').value = 1;
   document.getElementById('heure_retrait').value = '';
   document.getElementById('notes').value = '';
   document.getElementById('date_retrait').value = dateLocale();
+  panier = [];
+  afficherPanier();
   chargerCommandes();
+
+  alert('Commande enregistrée (' + nombreProduits + ' produit(s)).');
 }
 
 async function changerStatut(id, statut) {
@@ -561,6 +691,7 @@ async function envoyerMessage() {
 initProfil(async (profil) => {
   window.profilActuel = profil;
   document.getElementById('date_retrait').value = dateLocale();
+  afficherPanier();
   await genererCommandesRecurrentes();
   chargerCommandes();
 
