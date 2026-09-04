@@ -248,32 +248,40 @@ function afficherCommandes() {
     : Object.keys(groupes).map(client => {
       const lignes = groupes[client];
       const premiere = lignes[0];
+      const ids = lignes.map(c => c.id);
+
+      let statutGroupe;
+      if (lignes.every(c => c.statut === 'annule')) statutGroupe = 'annule';
+      else if (lignes.filter(c => c.statut !== 'annule').every(c => c.statut === 'pret')) statutGroupe = 'pret';
+      else statutGroupe = 'a_faire';
+
       return `
         <div class="commande">
-          <div style="margin-bottom:6px;">
-            <strong>${client}</strong><br>
-            <small>${premiere.heure_retrait ? premiere.heure_retrait.slice(0,5) : 'Heure non précisée'}${premiere.telephone ? ' · 📞 ' + premiere.telephone : ''}${premiere.prise_par ? ' · prise par ' + premiere.prise_par : ''}</small>
+          <div class="commande-top" style="margin-bottom:6px;">
+            <div>
+              <strong>${client}</strong><br>
+              <small>${premiere.heure_retrait ? premiere.heure_retrait.slice(0,5) : 'Heure non précisée'}${premiere.telephone ? ' · 📞 ' + premiere.telephone : ''}${premiere.prise_par ? ' · prise par ' + premiere.prise_par : ''}</small>
+            </div>
+            <span class="statut ${statutGroupe}">${libelleStatut(statutGroupe)}</span>
           </div>
+          <select class="statut-select" onchange='changerStatutGroupe(${JSON.stringify(ids)}, this.value)'>
+            <option value="a_faire" ${statutGroupe==='a_faire'?'selected':''}>À faire</option>
+            ${statutGroupe === 'pret' ? '<option value="pret" selected disabled>Prêt</option>' : ''}
+            <option value="annule" ${statutGroupe==='annule'?'selected':''}>Annulée</option>
+          </select>
           ${lignes.map(c => `
-            <div style="padding:8px 0; border-top:1px solid #eee;">
-              <div class="commande-top">
-                <div>
-                  ${c.produit} (x${c.quantite})${c.notes ? '<br><small>' + c.notes + '</small>' : ''}
-                </div>
-                <span class="statut ${c.statut}">${libelleStatut(c.statut)}</span>
-              </div>
-              <div style="display:flex; gap:8px; align-items:center; margin-top:6px;">
-                <select class="statut-select" style="flex:1; margin-top:0;" onchange="changerStatut('${c.id}', this.value)">
-                  <option value="a_faire" ${c.statut==='a_faire'?'selected':''}>À faire</option>
-                  ${c.statut === 'pret' ? '<option value="pret" selected disabled>Prêt</option>' : ''}
-                  <option value="annule" ${c.statut==='annule'?'selected':''}>Annulée</option>
-                </select>
-                <button onclick='ouvrirModalEdition(${JSON.stringify(c)})' style="border:1px solid #ddd; background:#fff; border-radius:10px; padding:10px 12px; font-size:15px; flex-shrink:0;">✏️</button>
-              </div>
+            <div style="padding:8px 0; border-top:1px solid #eee; display:flex; justify-content:space-between; align-items:center; gap:10px;">
+              <span>${c.produit} (x${c.quantite})${c.notes ? '<br><small>' + c.notes + '</small>' : ''}</span>
+              <button onclick='ouvrirModalEdition(${JSON.stringify(c)})' style="border:1px solid #ddd; background:#fff; border-radius:10px; padding:8px 10px; font-size:14px; flex-shrink:0;">✏️</button>
             </div>
           `).join('')}
         </div>
       `;
+    }).join('');
+  html += `</div>`;
+
+  conteneur.innerHTML = html;
+}      `;
     }).join('');
   html += `</div>`;
 
@@ -806,6 +814,11 @@ async function enregistrerEdition(id) {
 
 async function changerStatut(id, statut) {
   const { error } = await supabaseClient.from('commandes').update({ statut }).eq('id', id);
+  if (error) alert('Erreur : ' + error.message);
+}
+
+async function changerStatutGroupe(ids, statut) {
+  const { error } = await supabaseClient.from('commandes').update({ statut }).in('id', ids);
   if (error) alert('Erreur : ' + error.message);
 }
 
