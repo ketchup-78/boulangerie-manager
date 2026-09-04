@@ -261,7 +261,7 @@ function afficherCommandes() {
           <div class="commande-top" style="margin-bottom:6px;">
             <div>
               <strong>${client}</strong>
-              ${lignes.some(c => c.statut !== 'pret') ? `<button onclick='ouvrirSelectionProduitEdition(${JSON.stringify(lignes)})' style="border:1px solid #ddd; background:#fff; border-radius:8px; padding:4px 8px; font-size:13px; margin-left:6px;">✏️</button>` : ''}
+              <button onclick='ouvrirSelectionProduitEdition(${JSON.stringify(lignes)})' style="border:1px solid #ddd; background:#fff; border-radius:8px; padding:4px 8px; font-size:13px; margin-left:6px;">✏️</button>
               <br>
               <small>${premiere.heure_retrait ? premiere.heure_retrait.slice(0,5) : 'Heure non précisée'}${premiere.telephone ? ' · 📞 ' + premiere.telephone : ''}${premiere.prise_par ? ' · prise par ' + premiere.prise_par : ''}</small>
             </div>
@@ -272,7 +272,7 @@ function afficherCommandes() {
             ${statutGroupe === 'pret' ? '<option value="pret" selected disabled>Prêt</option>' : ''}
             <option value="annule" ${statutGroupe==='annule'?'selected':''}>Annulée</option>
           </select>
-          <button onclick='recupererCommande(${JSON.stringify(ids)})' style="width:100%; border:1px solid #ddd; background:#fff; color:var(--ink); padding:10px; border-radius:10px; font-size:14px; margin-top:8px;">✅ Récupéré par le client</button>
+          <button onclick='recupererCommande(${JSON.stringify(ids)})' ${statutGroupe !== 'pret' ? 'disabled' : ''} style="width:100%; border:1px solid #ddd; background:#fff; color:${statutGroupe === 'pret' ? 'var(--ink)' : '#bbb'}; padding:10px; border-radius:10px; font-size:14px; margin-top:8px; ${statutGroupe !== 'pret' ? 'cursor:not-allowed;' : ''}">✅ Récupéré par le client</button>
           ${lignes.map(c => `
             <div style="padding:8px 0; border-top:1px solid #eee;">
               <span>${c.produit} (x${c.quantite})${c.notes ? '<br><small>' + c.notes + '</small>' : ''}</span>
@@ -746,11 +746,12 @@ async function validerCommande() {
 }
 
 function ouvrirSelectionProduitEdition(lignes) {
+  const premiere = lignes[0];
   const overlay = document.createElement('div');
   overlay.id = 'overlay-selection-produit';
-  overlay.style.cssText = 'position:fixed;inset:0;background:rgba(36,26,20,.6);display:flex;align-items:center;justify-content:center;z-index:9998;padding:20px;';
+  overlay.style.cssText = 'position:fixed;inset:0;background:rgba(36,26,20,.6);display:flex;align-items:center;justify-content:center;z-index:9998;padding:20px;overflow-y:auto;';
   overlay.innerHTML = `
-    <div style="background:#fff;border-radius:18px;padding:24px;max-width:380px;width:100%;">
+    <div style="background:#fff;border-radius:18px;padding:24px;max-width:380px;width:100%;max-height:85vh;overflow-y:auto;">
       <h2 style="font-family:'Fraunces',serif;margin-top:0;">Quel produit modifier ?</h2>
       ${lignes.map(c => {
         const modifiable = c.statut !== 'pret';
@@ -766,9 +767,42 @@ function ouvrirSelectionProduitEdition(lignes) {
           </div>
         `;
       }).join('')}
-      <button onclick="fermerSelectionProduitEdition()" style="width:100%;border:none;background:none;color:#999;padding:10px;margin-top:10px;font-size:14px;">Annuler</button>
+
+      <div style="margin-top:16px; padding-top:16px; border-top:1px solid #eee;">
+        <label style="display:block;font-size:13px;opacity:.7;margin:0 0 4px;">+ Ajouter un produit à cette commande</label>
+        <input id="ajout-produit-edition" placeholder="Produit" style="width:100%;padding:12px;border-radius:10px;border:1px solid #ddd;font-size:15px;margin-bottom:8px;">
+        <div style="display:flex; gap:8px;">
+          <input id="ajout-quantite-edition" type="number" min="1" value="1" style="width:70px;padding:12px;border-radius:10px;border:1px solid #ddd;font-size:15px;">
+          <select id="ajout-atelier-edition" style="flex:1;padding:12px;border-radius:10px;border:1px solid #ddd;font-size:15px;">
+            <option value="patisserie">🧁 Pâtisserie</option>
+            <option value="boulangerie">🍞 Boulangerie</option>
+          </select>
+        </div>
+        <button onclick='ajouterProduitACommande(${JSON.stringify(premiere)})' style="width:100%;border:none;background:var(--accent);color:#241A14;padding:12px;border-radius:10px;font-size:15px;font-weight:600;margin-top:10px;">+ Ajouter</button>
+      </div>
+
+      <button onclick="fermerSelectionProduitEdition()" style="width:100%;border:none;background:none;color:#999;padding:10px;margin-top:10px;font-size:14px;">Fermer</button>
     </div>`;
   document.body.appendChild(overlay);
+}
+
+async function ajouterProduitACommande(premiere) {
+  const produit = document.getElementById('ajout-produit-edition').value.trim();
+  const quantite = parseInt(document.getElementById('ajout-quantite-edition').value) || 1;
+  const atelier = document.getElementById('ajout-atelier-edition').value;
+
+  if (!produit) { alert('Merci d\'indiquer un produit.'); return; }
+
+  const { error } = await supabaseClient.from('commandes').insert([{
+    client: premiere.client, telephone: premiere.telephone, produit, atelier, quantite,
+    date_retrait: premiere.date_retrait, heure_retrait: premiere.heure_retrait,
+    notes: premiere.notes, prise_par: premiere.prise_par
+  }]);
+
+  if (error) { alert('Erreur : ' + error.message); return; }
+
+  fermerSelectionProduitEdition();
+  chargerCommandes();
 }
 
 function fermerSelectionProduitEdition() {
