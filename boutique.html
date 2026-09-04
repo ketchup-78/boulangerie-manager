@@ -566,7 +566,7 @@ function filtrerCatalogueCommande() {
 
   conteneur.innerHTML = resultats.map(p => `
     <div onclick='ouvrirFicheCatalogueCommande(${JSON.stringify(p)})' style="background:#fff; border-radius:14px; margin-bottom:10px; overflow:hidden; cursor:pointer;">
-      ${p.photo_url ? `<img src="${p.photo_url}" style="width:100%; height:120px; object-fit:cover; display:block;">` : ''}
+      ${p.photo_url ? `<img src="${p.photo_url}" style="width:100%; height:140px; object-fit:contain; display:block; background:#f2ede4;">` : ''}
       <div style="padding:10px 14px;">
         <strong style="font-family:'Fraunces',serif;">${p.nom}</strong>
       </div>
@@ -580,7 +580,7 @@ function ouvrirFicheCatalogueCommande(produit) {
   fiche.style.cssText = 'position:fixed; inset:0; background:rgba(0,0,0,.5); z-index:9998; display:flex; align-items:center; justify-content:center; padding:20px;';
   fiche.innerHTML = `
     <div style="background:#fff; border-radius:16px; max-width:360px; width:100%; overflow:hidden;">
-      ${produit.photo_url ? `<img src="${produit.photo_url}" style="width:100%; height:180px; object-fit:cover; display:block;">` : ''}
+      ${produit.photo_url ? `<img src="${produit.photo_url}" style="width:100%; height:220px; object-fit:contain; display:block; background:#f2ede4;">` : ''}
       <div style="padding:18px;">
         <h3 style="font-family:'Fraunces',serif; margin:0 0 8px;">${produit.nom}</h3>
         ${produit.description ? `<p style="font-size:14px; opacity:.8; margin:0 0 10px;">${produit.description}</p>` : ''}
