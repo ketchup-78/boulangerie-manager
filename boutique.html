@@ -777,7 +777,8 @@ function ouvrirModalEdition(commande) {
       <input id="edit-notes" value="${commande.notes || ''}" style="width:100%;padding:12px;border-radius:10px;border:1px solid #ddd;font-size:15px;">
 
       <button class="primary" onclick="enregistrerEdition('${commande.id}')">Enregistrer les modifications</button>
-      <button onclick="fermerModalEdition()" style="width:100%;border:none;background:none;color:#999;padding:10px;margin-top:6px;font-size:14px;">Annuler</button>
+      <button onclick="supprimerLigneCommande('${commande.id}')" style="width:100%;border:none;background:none;color:var(--danger, #B00020);padding:10px;margin-top:6px;font-size:14px;">🗑️ Supprimer ce produit</button>
+      <button onclick="fermerModalEdition()" style="width:100%;border:none;background:none;color:#999;padding:10px;font-size:14px;">Annuler</button>
     </div>`;
   document.body.appendChild(overlay);
 }
@@ -785,6 +786,16 @@ function ouvrirModalEdition(commande) {
 function fermerModalEdition() {
   const overlay = document.getElementById('overlay-edition');
   if (overlay) overlay.remove();
+}
+
+async function supprimerLigneCommande(id) {
+  if (!confirm('Supprimer définitivement ce produit de la commande ?')) return;
+
+  const { error } = await supabaseClient.from('commandes').delete().eq('id', id);
+  if (error) { alert('Erreur : ' + error.message); return; }
+
+  fermerModalEdition();
+  chargerCommandes();
 }
 
 async function enregistrerEdition(id) {
