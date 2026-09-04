@@ -331,16 +331,18 @@ async function afficherHistoriqueClientRecherche(nomClient) {
 function ouvrirJourRechercheClient(date) {
   const items = derniersResultatsRecherche.filter(c => c.date_retrait === date);
   const libelle = date.split('-').reverse().join('/');
+  const nomClient = items[0] ? items[0].client : '';
 
   const overlay = document.createElement('div');
   overlay.id = 'overlay-jour-recherche';
   overlay.style.cssText = 'position:fixed;inset:0;background:rgba(36,26,20,.6);display:flex;align-items:center;justify-content:center;z-index:9998;padding:20px;';
   overlay.innerHTML = `
     <div style="background:#fff;border-radius:18px;padding:24px;max-width:380px;width:100%;max-height:80vh;overflow-y:auto;">
-      <h2 style="font-family:'Fraunces',serif;margin-top:0;">${libelle}</h2>
+      <h2 style="font-family:'Fraunces',serif;margin:0 0 2px;">${nomClient}</h2>
+      <p style="opacity:.6; font-size:13px; margin:0 0 14px;">${libelle}</p>
       ${items.map(c => `
         <div style="padding:10px 0; border-bottom:1px solid #eee;">
-          <strong>${c.client}</strong> — ${c.produit} (x${c.quantite})<br>
+          <strong>${c.produit}</strong> (x${c.quantite})<br>
           <small style="opacity:.6;">${c.heure_retrait ? c.heure_retrait.slice(0,5) : 'Heure non précisée'}${c.telephone ? ' · 📞 ' + c.telephone : ''}${c.notes ? ' · ' + c.notes : ''} · ${libelleStatut(c.statut)}</small>
         </div>
       `).join('')}
