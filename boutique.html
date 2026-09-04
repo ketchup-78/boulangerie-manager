@@ -199,6 +199,7 @@ async function chargerCommandes() {
     .select('*')
     .gte('date_retrait', joursSemaineCommandes[0])
     .lte('date_retrait', joursSemaineCommandes[6])
+    .eq('recupere', false)
     .or('client.neq."Casino Shop",produit.in.("Bûcheron","Complet")')
     .order('heure_retrait', { ascending: true });
 
@@ -271,6 +272,7 @@ function afficherCommandes() {
             ${statutGroupe === 'pret' ? '<option value="pret" selected disabled>Prêt</option>' : ''}
             <option value="annule" ${statutGroupe==='annule'?'selected':''}>Annulée</option>
           </select>
+          <button onclick='recupererCommande(${JSON.stringify(ids)})' style="width:100%; border:1px solid #ddd; background:#fff; color:var(--ink); padding:10px; border-radius:10px; font-size:14px; margin-top:8px;">✅ Récupéré par le client</button>
           ${lignes.map(c => `
             <div style="padding:8px 0; border-top:1px solid #eee;">
               <span>${c.produit} (x${c.quantite})${c.notes ? '<br><small>' + c.notes + '</small>' : ''}</span>
@@ -858,6 +860,15 @@ async function changerStatut(id, statut) {
 async function changerStatutGroupe(ids, statut) {
   const { error } = await supabaseClient.from('commandes').update({ statut }).in('id', ids);
   if (error) alert('Erreur : ' + error.message);
+}
+
+async function recupererCommande(ids) {
+  if (!confirm('Confirmer que le client a bien récupéré sa commande ?')) return;
+
+  const { error } = await supabaseClient.from('commandes').update({ recupere: true }).in('id', ids);
+  if (error) { alert('Erreur : ' + error.message); return; }
+
+  chargerCommandes();
 }
 
 function mettreAJourExempleMessage() {
