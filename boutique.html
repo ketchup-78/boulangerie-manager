@@ -262,11 +262,14 @@ function afficherCommandes() {
                 </div>
                 <span class="statut ${c.statut}">${libelleStatut(c.statut)}</span>
               </div>
-              <select class="statut-select" onchange="changerStatut('${c.id}', this.value)">
-                <option value="a_faire" ${c.statut==='a_faire'?'selected':''}>À faire</option>
-                ${c.statut === 'pret' ? '<option value="pret" selected disabled>Prêt</option>' : ''}
-                <option value="annule" ${c.statut==='annule'?'selected':''}>Annulée</option>
-              </select>
+              <div style="display:flex; gap:8px; align-items:center; margin-top:6px;">
+                <select class="statut-select" style="flex:1; margin-top:0;" onchange="changerStatut('${c.id}', this.value)">
+                  <option value="a_faire" ${c.statut==='a_faire'?'selected':''}>À faire</option>
+                  ${c.statut === 'pret' ? '<option value="pret" selected disabled>Prêt</option>' : ''}
+                  <option value="annule" ${c.statut==='annule'?'selected':''}>Annulée</option>
+                </select>
+                <button onclick='ouvrirModalEdition(${JSON.stringify(c)})' style="border:1px solid #ddd; background:#fff; border-radius:10px; padding:10px 12px; font-size:15px; flex-shrink:0;">✏️</button>
+              </div>
             </div>
           `).join('')}
         </div>
@@ -734,6 +737,71 @@ async function validerCommande() {
   chargerCommandes();
 
   alert('Commande enregistrée (' + nombreProduits + ' produit(s)).');
+}
+
+function ouvrirModalEdition(commande) {
+  const overlay = document.createElement('div');
+  overlay.id = 'overlay-edition';
+  overlay.style.cssText = 'position:fixed;inset:0;background:rgba(36,26,20,.6);display:flex;align-items:center;justify-content:center;z-index:9998;padding:20px;';
+  overlay.innerHTML = `
+    <div style="background:#fff;border-radius:18px;padding:24px;max-width:380px;width:100%;max-height:85vh;overflow-y:auto;">
+      <h2 style="font-family:'Fraunces',serif;margin-top:0;">✏️ Modifier la commande</h2>
+
+      <label style="display:block;font-size:13px;opacity:.7;margin:10px 0 4px;">Client</label>
+      <input id="edit-client" value="${commande.client.replace(/"/g, '&quot;')}" style="width:100%;padding:12px;border-radius:10px;border:1px solid #ddd;font-size:15px;">
+
+      <label style="display:block;font-size:13px;opacity:.7;margin:10px 0 4px;">Téléphone</label>
+      <input id="edit-telephone" value="${commande.telephone || ''}" style="width:100%;padding:12px;border-radius:10px;border:1px solid #ddd;font-size:15px;">
+
+      <label style="display:block;font-size:13px;opacity:.7;margin:10px 0 4px;">Produit</label>
+      <input id="edit-produit" value="${commande.produit.replace(/"/g, '&quot;')}" style="width:100%;padding:12px;border-radius:10px;border:1px solid #ddd;font-size:15px;">
+
+      <label style="display:block;font-size:13px;opacity:.7;margin:10px 0 4px;">Quantité</label>
+      <input id="edit-quantite" type="number" min="1" value="${commande.quantite}" style="width:100%;padding:12px;border-radius:10px;border:1px solid #ddd;font-size:15px;">
+
+      <label style="display:block;font-size:13px;opacity:.7;margin:10px 0 4px;">Date de retrait</label>
+      <input id="edit-date" type="date" value="${commande.date_retrait}" style="width:100%;padding:12px;border-radius:10px;border:1px solid #ddd;font-size:15px;">
+
+      <label style="display:block;font-size:13px;opacity:.7;margin:10px 0 4px;">Heure de retrait</label>
+      <input id="edit-heure" type="time" value="${commande.heure_retrait ? commande.heure_retrait.slice(0,5) : ''}" style="width:100%;padding:12px;border-radius:10px;border:1px solid #ddd;font-size:15px;">
+
+      <label style="display:block;font-size:13px;opacity:.7;margin:10px 0 4px;">Notes</label>
+      <input id="edit-notes" value="${commande.notes || ''}" style="width:100%;padding:12px;border-radius:10px;border:1px solid #ddd;font-size:15px;">
+
+      <button class="primary" onclick="enregistrerEdition('${commande.id}')">Enregistrer les modifications</button>
+      <button onclick="fermerModalEdition()" style="width:100%;border:none;background:none;color:#999;padding:10px;margin-top:6px;font-size:14px;">Annuler</button>
+    </div>`;
+  document.body.appendChild(overlay);
+}
+
+function fermerModalEdition() {
+  const overlay = document.getElementById('overlay-edition');
+  if (overlay) overlay.remove();
+}
+
+async function enregistrerEdition(id) {
+  const client = document.getElementById('edit-client').value.trim();
+  const telephone = document.getElementById('edit-telephone').value.trim() || null;
+  const produit = document.getElementById('edit-produit').value.trim();
+  const quantite = parseInt(document.getElementById('edit-quantite').value) || 1;
+  const date_retrait = document.getElementById('edit-date').value;
+  const heure_retrait = document.getElementById('edit-heure').value || null;
+  const notes = document.getElementById('edit-notes').value.trim() || null;
+
+  if (!client || !produit) {
+    alert('Merci de renseigner au moins le client et le produit.');
+    return;
+  }
+
+  const { error } = await supabaseClient
+    .from('commandes')
+    .update({ client, telephone, produit, quantite, date_retrait, heure_retrait, notes })
+    .eq('id', id);
+
+  if (error) { alert('Erreur : ' + error.message); return; }
+
+  fermerModalEdition();
+  chargerCommandes();
 }
 
 async function changerStatut(id, statut) {
