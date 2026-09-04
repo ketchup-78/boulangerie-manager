@@ -275,33 +275,57 @@ async function rechercherCommandesClient() {
   const recherche = document.getElementById('recherche-client').value.trim();
   const conteneur = document.getElementById('resultats-recherche');
 
-  if (!recherche) { conteneur.innerHTML = ''; derniersResultatsRecherche = []; return; }
+  if (!recherche) { conteneur.innerHTML = ''; return; }
+
+  const { data, error } = await supabaseClient
+    .from('commandes')
+    .select('client')
+    .ilike('client', recherche + '%')
+    .limit(300);
+
+  if (error) { conteneur.innerHTML = `<p class="empty">Erreur : ${error.message}</p>`; return; }
+
+  const nomsUniques = [...new Set((data || []).map(c => c.client))].sort();
+
+  if (nomsUniques.length === 0) { conteneur.innerHTML = `<p class="empty">Aucun client trouvé.</p>`; return; }
+
+  conteneur.innerHTML = nomsUniques.map(nom => `
+    <div onclick="afficherHistoriqueClientRecherche('${nom.replace(/'/g, "\\'")}')" style="cursor:pointer; padding:12px 0; border-bottom:1px solid #eee;">
+      <strong>${nom}</strong>
+    </div>
+  `).join('');
+}
+
+async function afficherHistoriqueClientRecherche(nomClient) {
+  const conteneur = document.getElementById('resultats-recherche');
+  conteneur.innerHTML = '<p class="empty">Chargement...</p>';
 
   const { data, error } = await supabaseClient
     .from('commandes')
     .select('*')
-    .ilike('client', '%' + recherche + '%')
+    .eq('client', nomClient)
     .order('date_retrait', { ascending: false })
-    .limit(200);
+    .limit(300);
 
   if (error) { conteneur.innerHTML = `<p class="empty">Erreur : ${error.message}</p>`; return; }
-  if (!data || data.length === 0) { conteneur.innerHTML = `<p class="empty">Aucune commande trouvée.</p>`; derniersResultatsRecherche = []; return; }
+  if (!data || data.length === 0) { conteneur.innerHTML = `<p class="empty">Aucune commande trouvée.</p>`; return; }
 
   derniersResultatsRecherche = data;
-
   const dates = [...new Set(data.map(c => c.date_retrait))].sort().reverse();
 
-  conteneur.innerHTML = dates.map(date => {
-    const items = data.filter(c => c.date_retrait === date);
-    const libelle = date.split('-').reverse().join('/');
-    const clients = [...new Set(items.map(c => c.client))].join(', ');
-    return `
-      <div onclick="ouvrirJourRechercheClient('${date}')" style="cursor:pointer; padding:12px 0; border-bottom:1px solid #eee; display:flex; justify-content:space-between; align-items:center;">
-        <span><strong>${libelle}</strong> — ${clients}</span>
-        <span style="opacity:.5; font-size:13px;">${items.length} produit(s) ▸</span>
-      </div>
-    `;
-  }).join('');
+  conteneur.innerHTML = `
+    <button onclick="rechercherCommandesClient()" style="border:none; background:none; color:var(--accent-dark); font-size:13px; text-decoration:underline; cursor:pointer; padding:0; margin-bottom:10px;">← Retour à la recherche</button>
+    <h3 style="font-family:'Fraunces',serif; margin:0 0 8px;">${nomClient}</h3>
+    ${dates.map(date => {
+      const items = data.filter(c => c.date_retrait === date);
+      const libelle = date.split('-').reverse().join('/');
+      return `
+        <div onclick="ouvrirJourRechercheClient('${date}')" style="cursor:pointer; padding:12px 0; border-bottom:1px solid #eee; display:flex; justify-content:space-between; align-items:center;">
+          <strong>${libelle}</strong>
+          <span style="opacity:.5; font-size:13px;">${items.length} produit(s) ▸</span>
+        </div>`;
+    }).join('')}
+  `;
 }
 
 function ouvrirJourRechercheClient(date) {
