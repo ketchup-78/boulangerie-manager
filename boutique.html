@@ -124,6 +124,10 @@
       <span id="label-semaine-commandes" style="flex:1; text-align:center; font-size:13px; opacity:.7;"></span>
       <button onclick="changerSemaineCommandes(1)" style="border:none; background:#f1e4c8; border-radius:8px; padding:8px 14px; font-size:16px; color:#241A14;">▶</button>
     </div>
+    <label style="display:flex; align-items:center; gap:8px; font-size:14px; opacity:.8; margin-bottom:10px;">
+      <input type="checkbox" id="toggle-recuperees" onchange="chargerCommandes()" style="width:auto;">
+      Voir aussi les commandes déjà récupérées
+    </label>
     <div id="liste-commandes">
       <p class="empty">Chargement...</p>
     </div>
@@ -194,14 +198,21 @@ async function chargerCommandes() {
     joursSemaineCommandes[0].slice(8,10) + '/' + joursSemaineCommandes[0].slice(5,7) +
     ' - ' + joursSemaineCommandes[6].slice(8,10) + '/' + joursSemaineCommandes[6].slice(5,7);
 
-  const { data, error } = await supabaseClient
+  const afficherRecuperees = document.getElementById('toggle-recuperees').checked;
+
+  let requete = supabaseClient
     .from('commandes')
     .select('*')
     .gte('date_retrait', joursSemaineCommandes[0])
     .lte('date_retrait', joursSemaineCommandes[6])
-    .eq('recupere', false)
     .or('client.neq."Casino Shop",produit.in.("Bûcheron","Complet")')
     .order('heure_retrait', { ascending: true });
+
+  if (!afficherRecuperees) {
+    requete = requete.eq('recupere', false);
+  }
+
+  const { data, error } = await requete;
 
   const conteneur = document.getElementById('liste-commandes');
 
