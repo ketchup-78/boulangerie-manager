@@ -29,7 +29,7 @@
   button.primary:active{transform:scale(0.98);}
   button.primary:disabled{opacity:.5;}
   .fiche{background:#fff; border-radius:16px; margin-bottom:14px; overflow:hidden; box-shadow:0 2px 8px rgba(0,0,0,.06);}
-  .fiche img{width:100%; height:180px; object-fit:contain; display:block; background:#f2ede4;}
+  .fiche img{width:100%; height:180px; object-fit:cover; display:block;}
   .fiche .contenu{padding:14px 16px;}
   .fiche h3{margin:0 0 6px; font-family:'Fraunces',serif; font-size:17px;}
   .fiche p{margin:0; font-size:14px; opacity:.85; line-height:1.4;}
@@ -58,7 +58,17 @@
     <label>Allergènes</label>
     <input id="allergenes-produit" placeholder="ex: Lait, Œufs, Gluten">
     <label>Photo</label>
-    <input id="photo-produit" type="file" accept="image/*">
+    <input id="photo-produit" type="file" accept="image/*" onchange="chargerPhotoPourCadrage(this)" style="display:none;">
+    <button type="button" onclick="document.getElementById('photo-produit').click()" style="width:100%; border:1px solid #ddd; background:#fff; color:var(--ink); padding:12px; border-radius:10px; font-size:15px;">📷 Choisir une photo</button>
+
+    <div id="zone-cadrage" style="display:none; margin-top:14px;">
+      <div id="cadre-photo" style="position:relative; width:100%; aspect-ratio:1/1; overflow:hidden; border-radius:14px; background:#eee; touch-action:none; cursor:grab;">
+        <img id="image-a-cadrer" style="position:absolute; max-width:none; user-select:none; -webkit-user-drag:none;">
+      </div>
+      <label style="margin-top:10px;">Zoom</label>
+      <input id="zoom-cadrage" type="range" min="100" max="300" value="100" oninput="appliquerCadrage()" style="width:100%;">
+      <p style="font-size:12px; opacity:.6; margin:6px 0 0;">Glisse la photo avec le doigt pour la repositionner.</p>
+    </div>
     <button class="primary" id="btn-ajouter-produit" onclick="ajouterProduit()">Ajouter au catalogue</button>
   </div>
 
@@ -112,6 +122,107 @@ function afficherCatalogue() {
   `).join('');
 }
 
+let cadragePosition = { x: 0, y: 0 };
+let cadrageEchelle = 1;
+let cadrageImageNaturelle = { largeur: 0, hauteur: 0 };
+let cadrageEnCours = false;
+let cadrageDepart = { x: 0, y: 0 };
+let photoCadreeBlob = null;
+
+function chargerPhotoPourCadrage(input) {
+  const fichier = input.files[0];
+  if (!fichier) return;
+
+  const lecteur = new FileReader();
+  lecteur.onload = (e) => {
+    const img = document.getElementById('image-a-cadrer');
+    img.onload = () => {
+      cadrageImageNaturelle = { largeur: img.naturalWidth, hauteur: img.naturalHeight };
+      document.getElementById('zoom-cadrage').value = 100;
+      cadrageEchelle = 1;
+      cadragePosition = { x: 0, y: 0 };
+      positionnerImageCadrage();
+      document.getElementById('zone-cadrage').style.display = 'block';
+    };
+    img.src = e.target.result;
+  };
+  lecteur.readAsDataURL(fichier);
+}
+
+function positionnerImageCadrage() {
+  const cadre = document.getElementById('cadre-photo');
+  const img = document.getElementById('image-a-cadrer');
+  const cote = cadre.clientWidth;
+
+  // Redimensionne pour que le petit côté remplisse le cadre carré, puis applique le zoom
+  const ratio = Math.max(cote / cadrageImageNaturelle.largeur, cote / cadrageImageNaturelle.hauteur) * cadrageEchelle;
+  const largeurAffichee = cadrageImageNaturelle.largeur * ratio;
+  const hauteurAffichee = cadrageImageNaturelle.hauteur * ratio;
+
+  img.style.width = largeurAffichee + 'px';
+  img.style.height = hauteurAffichee + 'px';
+
+  // Contraint la position pour ne jamais laisser de vide dans le cadre
+  const minX = cote - largeurAffichee;
+  const minY = cote - hauteurAffichee;
+  cadragePosition.x = Math.min(0, Math.max(minX, cadragePosition.x));
+  cadragePosition.y = Math.min(0, Math.max(minY, cadragePosition.y));
+
+  img.style.left = cadragePosition.x + 'px';
+  img.style.top = cadragePosition.y + 'px';
+}
+
+function appliquerCadrage() {
+  cadrageEchelle = document.getElementById('zoom-cadrage').value / 100;
+  positionnerImageCadrage();
+}
+
+function initGlisserCadrage() {
+  const cadre = document.getElementById('cadre-photo');
+
+  const debut = (x, y) => { cadrageEnCours = true; cadrageDepart = { x: x - cadragePosition.x, y: y - cadragePosition.y }; };
+  const bouge = (x, y) => {
+    if (!cadrageEnCours) return;
+    cadragePosition.x = x - cadrageDepart.x;
+    cadragePosition.y = y - cadrageDepart.y;
+    positionnerImageCadrage();
+  };
+  const fin = () => { cadrageEnCours = false; };
+
+  cadre.addEventListener('mousedown', (e) => debut(e.clientX, e.clientY));
+  window.addEventListener('mousemove', (e) => bouge(e.clientX, e.clientY));
+  window.addEventListener('mouseup', fin);
+
+  cadre.addEventListener('touchstart', (e) => { const t = e.touches[0]; debut(t.clientX, t.clientY); });
+  cadre.addEventListener('touchmove', (e) => { const t = e.touches[0]; bouge(t.clientX, t.clientY); e.preventDefault(); }, { passive: false });
+  cadre.addEventListener('touchend', fin);
+}
+initGlisserCadrage();
+
+// Produit le fichier final (cadré, carré) à partir de ce qui est visible dans le cadre
+function genererImageCadree() {
+  return new Promise((resolve) => {
+    const cadre = document.getElementById('cadre-photo');
+    const img = document.getElementById('image-a-cadrer');
+    const cote = cadre.clientWidth;
+    const tailleSortie = 800;
+
+    const ratioAffichage = parseFloat(img.style.width) / cadrageImageNaturelle.largeur;
+
+    const canvas = document.createElement('canvas');
+    canvas.width = tailleSortie;
+    canvas.height = tailleSortie;
+    const ctx = canvas.getContext('2d');
+
+    const sourceX = -cadragePosition.x / ratioAffichage;
+    const sourceY = -cadragePosition.y / ratioAffichage;
+    const sourceTaille = cote / ratioAffichage;
+
+    ctx.drawImage(img, sourceX, sourceY, sourceTaille, sourceTaille, 0, 0, tailleSortie, tailleSortie);
+    canvas.toBlob((blob) => resolve(blob), 'image/jpeg', 0.9);
+  });
+}
+
 async function ajouterProduit() {
   if (!window.profilActuel || window.profilActuel.role !== 'chef') {
     alert('Seul le chef peut modifier le catalogue.');
@@ -122,7 +233,7 @@ async function ajouterProduit() {
   const nom = document.getElementById('nom-produit').value.trim();
   const description = document.getElementById('description-produit').value.trim() || null;
   const allergenes = document.getElementById('allergenes-produit').value.trim() || null;
-  const fichier = document.getElementById('photo-produit').files[0];
+  const aUnePhoto = document.getElementById('zone-cadrage').style.display === 'block';
 
   if (!nom) { alert('Merci de donner un nom au produit.'); return; }
 
@@ -130,9 +241,10 @@ async function ajouterProduit() {
   bouton.textContent = 'Enregistrement...';
 
   let photo_url = null;
-  if (fichier) {
-    const nomFichier = Date.now() + '-' + fichier.name.normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-zA-Z0-9._-]/g, '_');
-    const { error: erreurUpload } = await supabaseClient.storage.from('Catalogue').upload(nomFichier, fichier);
+  if (aUnePhoto) {
+    const blobCadre = await genererImageCadree();
+    const nomFichier = Date.now() + '-photo.jpg';
+    const { error: erreurUpload } = await supabaseClient.storage.from('Catalogue').upload(nomFichier, blobCadre, { contentType: 'image/jpeg' });
     if (erreurUpload) {
       alert("Erreur lors de l'envoi de la photo : " + erreurUpload.message);
       bouton.disabled = false;
@@ -156,6 +268,7 @@ async function ajouterProduit() {
   document.getElementById('description-produit').value = '';
   document.getElementById('allergenes-produit').value = '';
   document.getElementById('photo-produit').value = '';
+  document.getElementById('zone-cadrage').style.display = 'none';
   chargerCatalogue();
 }
 
