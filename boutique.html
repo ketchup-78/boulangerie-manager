@@ -235,26 +235,43 @@ function afficherCommandes() {
 
   const commandesDuJour = derniereListeCommandesSemaine.filter(c => c.date_retrait === jourSelectionneCommandes);
 
+  const groupes = {};
+  commandesDuJour.forEach(c => {
+    if (!groupes[c.client]) groupes[c.client] = [];
+    groupes[c.client].push(c);
+  });
+
   let html = `<div style="display:flex; gap:8px; overflow-x:auto; padding-bottom:6px;">${tuiles}</div>`;
   html += `<div style="margin-top:14px;">`;
-  html += commandesDuJour.length === 0
+  html += Object.keys(groupes).length === 0
     ? `<p class="empty">Aucune commande ce jour-là.</p>`
-    : commandesDuJour.map(c => `
-      <div class="commande">
-        <div class="commande-top">
-          <div>
-            <strong>${c.client}</strong> — ${c.produit} (x${c.quantite})<br>
-            <small>${c.heure_retrait ? c.heure_retrait.slice(0,5) : 'Heure non précisée'}${c.telephone ? ' · 📞 ' + c.telephone : ''}${c.notes ? ' · ' + c.notes : ''}${c.prise_par ? ' · prise par ' + c.prise_par : ''}</small>
+    : Object.keys(groupes).map(client => {
+      const lignes = groupes[client];
+      const premiere = lignes[0];
+      return `
+        <div class="commande">
+          <div style="margin-bottom:6px;">
+            <strong>${client}</strong><br>
+            <small>${premiere.heure_retrait ? premiere.heure_retrait.slice(0,5) : 'Heure non précisée'}${premiere.telephone ? ' · 📞 ' + premiere.telephone : ''}${premiere.prise_par ? ' · prise par ' + premiere.prise_par : ''}</small>
           </div>
-          <span class="statut ${c.statut}">${libelleStatut(c.statut)}</span>
+          ${lignes.map(c => `
+            <div style="padding:8px 0; border-top:1px solid #eee;">
+              <div class="commande-top">
+                <div>
+                  ${c.produit} (x${c.quantite})${c.notes ? '<br><small>' + c.notes + '</small>' : ''}
+                </div>
+                <span class="statut ${c.statut}">${libelleStatut(c.statut)}</span>
+              </div>
+              <select class="statut-select" onchange="changerStatut('${c.id}', this.value)">
+                <option value="a_faire" ${c.statut==='a_faire'?'selected':''}>À faire</option>
+                ${c.statut === 'pret' ? '<option value="pret" selected disabled>Prêt</option>' : ''}
+                <option value="annule" ${c.statut==='annule'?'selected':''}>Annulée</option>
+              </select>
+            </div>
+          `).join('')}
         </div>
-        <select class="statut-select" onchange="changerStatut('${c.id}', this.value)">
-          <option value="a_faire" ${c.statut==='a_faire'?'selected':''}>À faire</option>
-          ${c.statut === 'pret' ? '<option value="pret" selected disabled>Prêt</option>' : ''}
-          <option value="annule" ${c.statut==='annule'?'selected':''}>Annulée</option>
-        </select>
-      </div>
-    `).join('');
+      `;
+    }).join('');
   html += `</div>`;
 
   conteneur.innerHTML = html;
