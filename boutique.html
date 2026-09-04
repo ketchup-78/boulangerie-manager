@@ -269,33 +269,65 @@ function libelleStatut(s) {
   return { a_faire: 'À faire', pret: 'Prêt', annule: 'Annulée' }[s] || s;
 }
 
+let derniersResultatsRecherche = [];
+
 async function rechercherCommandesClient() {
   const recherche = document.getElementById('recherche-client').value.trim();
   const conteneur = document.getElementById('resultats-recherche');
 
-  if (!recherche) { conteneur.innerHTML = ''; return; }
+  if (!recherche) { conteneur.innerHTML = ''; derniersResultatsRecherche = []; return; }
 
   const { data, error } = await supabaseClient
     .from('commandes')
     .select('*')
     .ilike('client', '%' + recherche + '%')
     .order('date_retrait', { ascending: false })
-    .limit(50);
+    .limit(200);
 
   if (error) { conteneur.innerHTML = `<p class="empty">Erreur : ${error.message}</p>`; return; }
-  if (!data || data.length === 0) { conteneur.innerHTML = `<p class="empty">Aucune commande trouvée.</p>`; return; }
+  if (!data || data.length === 0) { conteneur.innerHTML = `<p class="empty">Aucune commande trouvée.</p>`; derniersResultatsRecherche = []; return; }
 
-  conteneur.innerHTML = data.map(c => `
-    <div class="commande">
-      <div class="commande-top">
-        <div>
-          <strong>${c.client}</strong> — ${c.produit} (x${c.quantite})<br>
-          <small>${c.date_retrait.split('-').reverse().join('/')}${c.heure_retrait ? ' à ' + c.heure_retrait.slice(0,5) : ''}${c.telephone ? ' · 📞 ' + c.telephone : ''}${c.notes ? ' · ' + c.notes : ''}</small>
-        </div>
-        <span class="statut ${c.statut}">${libelleStatut(c.statut)}</span>
+  derniersResultatsRecherche = data;
+
+  const dates = [...new Set(data.map(c => c.date_retrait))].sort().reverse();
+
+  conteneur.innerHTML = dates.map(date => {
+    const items = data.filter(c => c.date_retrait === date);
+    const libelle = date.split('-').reverse().join('/');
+    const clients = [...new Set(items.map(c => c.client))].join(', ');
+    return `
+      <div onclick="ouvrirJourRechercheClient('${date}')" style="cursor:pointer; padding:12px 0; border-bottom:1px solid #eee; display:flex; justify-content:space-between; align-items:center;">
+        <span><strong>${libelle}</strong> — ${clients}</span>
+        <span style="opacity:.5; font-size:13px;">${items.length} produit(s) ▸</span>
       </div>
-    </div>
-  `).join('');
+    `;
+  }).join('');
+}
+
+function ouvrirJourRechercheClient(date) {
+  const items = derniersResultatsRecherche.filter(c => c.date_retrait === date);
+  const libelle = date.split('-').reverse().join('/');
+
+  const overlay = document.createElement('div');
+  overlay.id = 'overlay-jour-recherche';
+  overlay.style.cssText = 'position:fixed;inset:0;background:rgba(36,26,20,.6);display:flex;align-items:center;justify-content:center;z-index:9998;padding:20px;';
+  overlay.innerHTML = `
+    <div style="background:#fff;border-radius:18px;padding:24px;max-width:380px;width:100%;max-height:80vh;overflow-y:auto;">
+      <h2 style="font-family:'Fraunces',serif;margin-top:0;">${libelle}</h2>
+      ${items.map(c => `
+        <div style="padding:10px 0; border-bottom:1px solid #eee;">
+          <strong>${c.client}</strong> — ${c.produit} (x${c.quantite})<br>
+          <small style="opacity:.6;">${c.heure_retrait ? c.heure_retrait.slice(0,5) : 'Heure non précisée'}${c.telephone ? ' · 📞 ' + c.telephone : ''}${c.notes ? ' · ' + c.notes : ''} · ${libelleStatut(c.statut)}</small>
+        </div>
+      `).join('')}
+      <button onclick="fermerJourRechercheClient()" style="width:100%; border:none; background:var(--ink); color:#fff; padding:14px; border-radius:12px; font-size:16px; margin-top:14px;">Fermer</button>
+    </div>`;
+  document.body.appendChild(overlay);
+}
+
+function fermerJourRechercheClient() {
+  const overlay = document.getElementById('overlay-jour-recherche');
+  if (overlay) overlay.remove();
 }
 
 function ouvrirModalMessage() {
