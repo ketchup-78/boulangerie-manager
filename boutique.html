@@ -259,7 +259,9 @@ function afficherCommandes() {
         <div class="commande">
           <div class="commande-top" style="margin-bottom:6px;">
             <div>
-              <strong>${client}</strong><br>
+              <strong>${client}</strong>
+              ${lignes.some(c => c.statut !== 'pret') ? `<button onclick='ouvrirSelectionProduitEdition(${JSON.stringify(lignes)})' style="border:1px solid #ddd; background:#fff; border-radius:8px; padding:4px 8px; font-size:13px; margin-left:6px;">✏️</button>` : ''}
+              <br>
               <small>${premiere.heure_retrait ? premiere.heure_retrait.slice(0,5) : 'Heure non précisée'}${premiere.telephone ? ' · 📞 ' + premiere.telephone : ''}${premiere.prise_par ? ' · prise par ' + premiere.prise_par : ''}</small>
             </div>
             <span class="statut ${statutGroupe}">${libelleStatut(statutGroupe)}</span>
@@ -270,9 +272,8 @@ function afficherCommandes() {
             <option value="annule" ${statutGroupe==='annule'?'selected':''}>Annulée</option>
           </select>
           ${lignes.map(c => `
-            <div style="padding:8px 0; border-top:1px solid #eee; display:flex; justify-content:space-between; align-items:center; gap:10px;">
+            <div style="padding:8px 0; border-top:1px solid #eee;">
               <span>${c.produit} (x${c.quantite})${c.notes ? '<br><small>' + c.notes + '</small>' : ''}</span>
-              <button onclick='ouvrirModalEdition(${JSON.stringify(c)})' style="border:1px solid #ddd; background:#fff; border-radius:10px; padding:8px 10px; font-size:14px; flex-shrink:0;">✏️</button>
             </div>
           `).join('')}
         </div>
@@ -740,6 +741,37 @@ async function validerCommande() {
   chargerCommandes();
 
   alert('Commande enregistrée (' + nombreProduits + ' produit(s)).');
+}
+
+function ouvrirSelectionProduitEdition(lignes) {
+  const overlay = document.createElement('div');
+  overlay.id = 'overlay-selection-produit';
+  overlay.style.cssText = 'position:fixed;inset:0;background:rgba(36,26,20,.6);display:flex;align-items:center;justify-content:center;z-index:9998;padding:20px;';
+  overlay.innerHTML = `
+    <div style="background:#fff;border-radius:18px;padding:24px;max-width:380px;width:100%;">
+      <h2 style="font-family:'Fraunces',serif;margin-top:0;">Quel produit modifier ?</h2>
+      ${lignes.map(c => {
+        const modifiable = c.statut !== 'pret';
+        return modifiable ? `
+          <div onclick='fermerSelectionProduitEdition(); ouvrirModalEdition(${JSON.stringify(c)})' style="cursor:pointer; padding:12px 0; border-bottom:1px solid #eee; display:flex; justify-content:space-between; align-items:center;">
+            <span>${c.produit} (x${c.quantite})</span>
+            <span style="opacity:.4;">▸</span>
+          </div>
+        ` : `
+          <div style="padding:12px 0; border-bottom:1px solid #eee; display:flex; justify-content:space-between; align-items:center; opacity:.4;">
+            <span>${c.produit} (x${c.quantite})</span>
+            <span style="font-size:12px;">Prêt — non modifiable</span>
+          </div>
+        `;
+      }).join('')}
+      <button onclick="fermerSelectionProduitEdition()" style="width:100%;border:none;background:none;color:#999;padding:10px;margin-top:10px;font-size:14px;">Annuler</button>
+    </div>`;
+  document.body.appendChild(overlay);
+}
+
+function fermerSelectionProduitEdition() {
+  const overlay = document.getElementById('overlay-selection-produit');
+  if (overlay) overlay.remove();
 }
 
 function ouvrirModalEdition(commande) {
