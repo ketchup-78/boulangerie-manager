@@ -239,15 +239,18 @@ async function chargerVueSemaine() {
   jours.forEach(j => compte[j] = 0);
   (data || []).forEach(c => { if (compte[c.date_retrait] !== undefined) compte[c.date_retrait]++; });
 
-  const todayStr = jours[0];
+  const jourChoisi = document.getElementById('date-commandes').value || jours[0];
 
-  conteneur.innerHTML = jours.map((j, i) => `
-    <div onclick="selectionnerJour('${j}')" style="cursor:pointer; text-align:center; padding:10px 6px; border-radius:10px; background:${j === todayStr ? '#f1e4c8' : '#f7f4ee'}; min-width:58px; flex-shrink:0;">
-      <div style="font-size:11px; opacity:.6; text-transform:capitalize;">${dates[i].toLocaleDateString('fr-FR', { weekday: 'short' })}</div>
-      <div style="font-size:13px; font-weight:600;">${j.slice(8,10)}/${j.slice(5,7)}</div>
-      <div style="font-size:16px; font-weight:700; color:var(--accent-dark); margin-top:4px;">${compte[j]}</div>
+  conteneur.innerHTML = jours.map((j, i) => {
+    const actif = j === jourChoisi;
+    return `
+    <div onclick="selectionnerJour('${j}')" style="cursor:pointer; text-align:center; padding:10px 6px; border-radius:10px; background:${actif ? 'var(--accent)' : '#f7f4ee'}; border:${actif ? '2px solid var(--accent-dark)' : '2px solid transparent'}; min-width:58px; flex-shrink:0; transform:${actif ? 'scale(1.05)' : 'none'};">
+      <div style="font-size:11px; opacity:${actif ? '.85' : '.6'}; text-transform:capitalize; color:${actif ? '#241A14' : 'inherit'}; font-weight:${actif ? '700' : '400'};">${dates[i].toLocaleDateString('fr-FR', { weekday: 'short' })}</div>
+      <div style="font-size:13px; font-weight:700; color:${actif ? '#241A14' : 'inherit'};">${j.slice(8,10)}/${j.slice(5,7)}</div>
+      <div style="font-size:16px; font-weight:700; color:${actif ? '#241A14' : 'var(--accent-dark)'}; margin-top:4px;">${compte[j]}</div>
     </div>
-  `).join('');
+  `;
+  }).join('');
 }
 
 function selectionnerJour(date) {

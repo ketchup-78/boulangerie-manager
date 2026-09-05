@@ -238,10 +238,10 @@ function afficherCommandes() {
     const nb = derniereListeCommandesSemaine.filter(c => c.date_retrait === j).length;
     const actif = jourSelectionneCommandes === j;
     return `
-      <div onclick="selectionnerJourCommandes('${j}')" style="cursor:pointer; text-align:center; padding:10px 6px; border-radius:10px; background:${actif ? '#f1e4c8' : '#f7f4ee'}; min-width:58px; flex-shrink:0;">
-        <div style="font-size:11px; opacity:.6; text-transform:capitalize;">${datesSemaineCommandes[i].toLocaleDateString('fr-FR', { weekday: 'short' })}</div>
-        <div style="font-size:13px; font-weight:600;">${j.slice(8,10)}/${j.slice(5,7)}</div>
-        <div style="font-size:16px; font-weight:700; color:var(--accent-dark); margin-top:4px;">${nb}</div>
+      <div onclick="selectionnerJourCommandes('${j}')" style="cursor:pointer; text-align:center; padding:10px 6px; border-radius:10px; background:${actif ? 'var(--accent)' : '#f7f4ee'}; border:${actif ? '2px solid var(--accent-dark)' : '2px solid transparent'}; min-width:58px; flex-shrink:0; transform:${actif ? 'scale(1.05)' : 'none'};">
+        <div style="font-size:11px; opacity:${actif ? '.85' : '.6'}; text-transform:capitalize; color:${actif ? '#241A14' : 'inherit'}; font-weight:${actif ? '700' : '400'};">${datesSemaineCommandes[i].toLocaleDateString('fr-FR', { weekday: 'short' })}</div>
+        <div style="font-size:13px; font-weight:700; color:${actif ? '#241A14' : 'inherit'};">${j.slice(8,10)}/${j.slice(5,7)}</div>
+        <div style="font-size:16px; font-weight:700; color:${actif ? '#241A14' : 'var(--accent-dark)'}; margin-top:4px;">${nb}</div>
       </div>`;
   }).join('');
 
