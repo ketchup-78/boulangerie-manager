@@ -369,8 +369,15 @@ async function chargerDlc() {
       <div class="dlc-item">
         <span>${d.produit}${d.quantite ? ' (' + d.quantite + ')' : ''}</span>
         <span class="${classe}">${etiquette}</span>
+        <button onclick="marquerProduitFini('${d.id}')" style="border:1px solid #ddd; background:#fff; color:var(--ink); padding:6px 10px; border-radius:8px; font-size:12px; margin-left:8px; flex-shrink:0;">✅ Produit fini</button>
       </div>`;
   }).join('');
+}
+
+async function marquerProduitFini(id) {
+  const { error } = await supabaseClient.from('dlc').update({ ecoule: true }).eq('id', id);
+  if (error) { alert('Erreur : ' + error.message); return; }
+  chargerDlc();
 }
 
 // ---------- Liste des employés pour l'assignation de tâches ----------
