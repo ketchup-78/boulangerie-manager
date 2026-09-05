@@ -30,7 +30,13 @@ function effacerProfil() {
 let minuteurInactivite;
 function reinitialiserMinuteurInactivite() {
   clearTimeout(minuteurInactivite);
-  minuteurInactivite = setTimeout(effacerProfil, 5 * 60 * 1000);
+  minuteurInactivite = setTimeout(() => {
+    if (window.INACTIVITE_RETOUR_ACCUEIL) {
+      window.location.href = 'index.html';
+    } else {
+      effacerProfil();
+    }
+  }, 5 * 60 * 1000);
 }
 function demarrerSurveillanceInactivite() {
   reinitialiserMinuteurInactivite();

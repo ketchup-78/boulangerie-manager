@@ -65,7 +65,7 @@
 </main>
 
 <script src="supabase-config.js?v=6"></script>
-<script src="profil.js?v=6"></script>
+<script src="profil.js?v=7"></script>
 <script>
 
 const PRODUITS_BOULANGERIE = [
@@ -223,6 +223,8 @@ async function telechargerHistoriqueAnnuel() {
   document.body.removeChild(lien);
   URL.revokeObjectURL(url);
 }
+
+window.INACTIVITE_RETOUR_ACCUEIL = true;
 
 initProfil((profil) => {
   window.profilActuel = profil;
