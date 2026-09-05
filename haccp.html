@@ -65,6 +65,17 @@
   </div>
 
   <div class="card">
+    <h2>➕ Ajouter une préparation</h2>
+    <label style="display:block;font-size:13px;opacity:.7;margin:10px 0 4px;">Nom</label>
+    <input id="nom-haccp" placeholder="ex: Crème citron">
+    <label style="display:block;font-size:13px;opacity:.7;margin:10px 0 4px;">Durée de conservation (jours)</label>
+    <input id="duree-haccp" type="number" min="1" value="3">
+    <label style="display:block;font-size:13px;opacity:.7;margin:10px 0 4px;">Allergènes (optionnel)</label>
+    <input id="allergenes-haccp" placeholder="ex: Lait, Œufs">
+    <button class="primary" id="btn-ajouter-haccp" onclick="ajouterPreparation()">Ajouter à la bibliothèque</button>
+  </div>
+
+  <div class="card">
     <div id="liste-produits-haccp"></div>
   </div>
 </main>
@@ -92,30 +103,23 @@
 const params = new URLSearchParams(window.location.search);
 const atelier = params.get('atelier') === 'patisserie' ? 'patisserie' : 'boulangerie';
 
-// Bibliothèque intégrée — durées de conservation courantes du métier (à ajuster selon ton PMS)
-const BIBLIOTHEQUE_HACCP = [
-  { nom: 'Crème pâtissière', jours: 3, allergenes: 'Lait, Œufs, Gluten' },
-  { nom: 'Crème anglaise', jours: 3, allergenes: 'Lait, Œufs' },
-  { nom: 'Crème chantilly / fouettée', jours: 2, allergenes: 'Lait' },
-  { nom: 'Crème mousseline', jours: 2, allergenes: 'Lait, Œufs' },
-  { nom: 'Crème diplomate', jours: 2, allergenes: 'Lait, Œufs, Gluten' },
-  { nom: 'Crème au beurre', jours: 3, allergenes: 'Lait, Œufs' },
-  { nom: "Crème d'amande", jours: 3, allergenes: 'Fruits à coque, Œufs, Lait' },
-  { nom: 'Frangipane', jours: 3, allergenes: 'Fruits à coque, Œufs, Lait, Gluten' },
-  { nom: 'Ganache chocolat', jours: 5, allergenes: 'Lait, Soja' },
-  { nom: 'Mousse au chocolat', jours: 2, allergenes: 'Œufs, Lait, Soja' },
-  { nom: 'Bavaroise', jours: 2, allergenes: 'Lait, Œufs' },
-  { nom: 'Crème brûlée (appareil)', jours: 2, allergenes: 'Lait, Œufs' },
-  { nom: 'Glaçage miroir', jours: 5, allergenes: 'Lait' },
-  { nom: 'Confiture maison', jours: 30, allergenes: '' },
-  { nom: 'Compote de fruits', jours: 5, allergenes: '' },
-  { nom: 'Sirop (imbibage)', jours: 15, allergenes: '' },
-  { nom: 'Pâte à choux garnie', jours: 1, allergenes: 'Gluten, Œufs, Lait' },
-  { nom: 'Coulis de fruits', jours: 4, allergenes: '' },
-  { nom: 'Pâte feuilletée crue', jours: 3, allergenes: 'Gluten, Lait' },
-  { nom: 'Pâte levée crue', jours: 2, allergenes: 'Gluten' },
-  { nom: 'Levain', jours: 7, allergenes: 'Gluten' }
-];
+let bibliothequeHaccp = [];
+
+async function chargerBibliotheque() {
+  const { data, error } = await supabaseClient
+    .from('produits_haccp')
+    .select('*')
+    .eq('atelier', atelier)
+    .order('nom');
+
+  if (error) {
+    document.getElementById('liste-produits-haccp').innerHTML = `<p class="empty">Erreur : ${error.message}</p>`;
+    return;
+  }
+
+  bibliothequeHaccp = data || [];
+  afficherResultats();
+}
 
 function normaliser(texte) {
   return texte.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
@@ -126,20 +130,46 @@ function afficherResultats() {
   const conteneur = document.getElementById('liste-produits-haccp');
 
   const resultats = recherche
-    ? BIBLIOTHEQUE_HACCP.filter(p => normaliser(p.nom).includes(recherche))
-    : BIBLIOTHEQUE_HACCP;
+    ? bibliothequeHaccp.filter(p => normaliser(p.nom).includes(recherche))
+    : bibliothequeHaccp;
 
   if (resultats.length === 0) {
-    conteneur.innerHTML = `<p class="empty">Aucune préparation trouvée. Demande à Claude de l'ajouter à la bibliothèque si besoin.</p>`;
+    conteneur.innerHTML = `<p class="empty">${bibliothequeHaccp.length === 0 ? 'Aucune préparation pour l\'instant — ajoutes-en une ci-dessus.' : 'Aucune préparation trouvée.'}</p>`;
     return;
   }
 
   conteneur.innerHTML = resultats.map(p => `
     <button class="tuile-produit" onclick='ouvrirEtiquette(${JSON.stringify(p)})'>
       <strong>${p.nom}</strong>
-      <small>Conservation ${p.jours} jour(s)${p.allergenes ? ' · Allergènes : ' + p.allergenes : ''}</small>
+      <small>Conservation ${p.duree_conservation_jours} jour(s)${p.allergenes ? ' · Allergènes : ' + p.allergenes : ''}</small>
     </button>
   `).join('');
+}
+
+async function ajouterPreparation() {
+  const bouton = document.getElementById('btn-ajouter-haccp');
+  const nom = document.getElementById('nom-haccp').value.trim();
+  const duree_conservation_jours = parseInt(document.getElementById('duree-haccp').value) || 3;
+  const allergenes = document.getElementById('allergenes-haccp').value.trim() || null;
+
+  if (!nom) { alert('Merci de donner un nom à la préparation.'); return; }
+
+  bouton.disabled = true;
+  bouton.textContent = 'Enregistrement...';
+
+  const { error } = await supabaseClient.from('produits_haccp').insert([
+    { nom, atelier, duree_conservation_jours, allergenes }
+  ]);
+
+  bouton.disabled = false;
+  bouton.textContent = 'Ajouter à la bibliothèque';
+
+  if (error) { alert('Erreur : ' + error.message); return; }
+
+  document.getElementById('nom-haccp').value = '';
+  document.getElementById('duree-haccp').value = 3;
+  document.getElementById('allergenes-haccp').value = '';
+  chargerBibliotheque();
 }
 
 function formaterDateAffichage(date) {
@@ -149,7 +179,7 @@ function formaterDateAffichage(date) {
 async function ouvrirEtiquette(produit) {
   const aujourdhui = new Date();
   const dlc = new Date(aujourdhui);
-  dlc.setDate(dlc.getDate() + produit.jours);
+  dlc.setDate(dlc.getDate() + produit.duree_conservation_jours);
 
   const auteur = window.profilActuel ? window.profilActuel.nom : '—';
 
@@ -184,7 +214,7 @@ function fermerEtiquette() {
 
 initProfil((profil) => {
   window.profilActuel = profil;
-  afficherResultats();
+  chargerBibliotheque();
 }, atelier);
 
 </script>
