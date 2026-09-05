@@ -268,7 +268,7 @@ function afficherCommandes() {
       else statutGroupe = 'a_faire';
 
       return `
-        <div class="commande">
+        <div class="commande" style="${statutGroupe === 'annule' ? 'background:#fdeaea; border-radius:10px; padding:10px; margin-bottom:6px;' : ''}">
           <div class="commande-top" style="margin-bottom:6px;">
             <div>
               <strong>${client}</strong>
