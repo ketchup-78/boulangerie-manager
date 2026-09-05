@@ -95,12 +95,12 @@ async function initProfil(callback, filtreService) {
             width:118px;padding:20px 8px;border:none;border-radius:16px;
             background:#FAF7F2;cursor:pointer;font-family:inherit;
             transition:transform .1s ease;">
-            <span style="width:56px;height:56px;border-radius:50%;background:#C68A2E;color:#241A14;
+            <span style="width:56px;height:56px;border-radius:50%;background:#C68A2E;color:rgba(32, 42, 67, 1);
               display:flex;align-items:center;justify-content:center;font-size:24px;font-weight:700;
               font-family:'Fraunces',serif;">
               ${e.nom.charAt(0).toUpperCase()}
             </span>
-            <span style="font-size:16px;font-weight:600;color:#241A14;">${e.nom}</span>
+            <span style="font-size:16px;font-weight:600;color:rgba(32, 42, 67, 1);">${e.nom}</span>
           </button>
         `).join('')}
       </div>

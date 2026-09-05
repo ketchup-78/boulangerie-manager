@@ -9,7 +9,7 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
   :root{
-    --bg:#FAF7F2; --surface:#FFFFFF; --ink:#241A14;
+    --bg:#FAF7F2; --surface:#FFFFFF; --ink:rgba(32, 42, 67, 1);
     --accent:#C68A2E; --accent-dark:#9C6B1E; --radius:18px;
   }
   *{box-sizing:border-box;}
@@ -24,7 +24,7 @@
   input, select, textarea{width:100%; padding:12px; border-radius:10px; border:1px solid #ddd; font-size:15px; font-family:inherit;}
   textarea{min-height:80px; resize:vertical;}
   button.primary{
-    margin-top:16px; width:100%; border:none; background:var(--accent); color:#241A14;
+    margin-top:16px; width:100%; border:none; background:var(--accent); color:rgba(32, 42, 67, 1);
     padding:14px; border-radius:12px; font-size:16px; font-weight:600;
   }
   button.primary:active{transform:scale(0.98);}
@@ -38,10 +38,10 @@
 <body>
 
 <header style="display:flex; align-items:center; justify-content:space-between; gap:10px;">
-  <a href="index.html" title="Accueil" style="display:inline-flex; align-items:center; justify-content:center; flex-shrink:0; width:52px; height:52px; border-radius:50%; background:var(--accent); color:#241A14; text-decoration:none; font-size:24px;">🏠</a>
+  <a href="index.html" title="Accueil" style="display:inline-flex; align-items:center; justify-content:center; flex-shrink:0; width:52px; height:52px; border-radius:50%; background:var(--accent); color:rgba(32, 42, 67, 1); text-decoration:none; font-size:24px;">🏠</a>
   <h1 id="titre-page" style="margin:0; text-align:center; flex:1;">📒 Casino Shop</h1>
   <div style="display:flex; flex-direction:column; align-items:center; flex-shrink:0;">
-    <div title="Profil verrouillé sur cette page" style="width:52px; height:52px; border-radius:50%; background:var(--accent); color:#241A14; font-size:26px; display:flex; align-items:center; justify-content:center;">👨‍🍳</div>
+    <div title="Profil verrouillé sur cette page" style="width:52px; height:52px; border-radius:50%; background:var(--accent); color:rgba(32, 42, 67, 1); font-size:26px; display:flex; align-items:center; justify-content:center;">👨‍🍳</div>
     <span id="bandeau-profil" style="font-size:10px; opacity:.8; margin-top:3px; text-align:center;"></span>
   </div>
 </header>
