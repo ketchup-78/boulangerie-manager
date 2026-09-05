@@ -425,10 +425,63 @@ function chargerTout() {
   chargerVueSemaine();
 }
 
+// ---------- RAPPEL RELEVÉ DE TEMPÉRATURES ----------
+const RAPPELS_TEMPERATURE = [
+  { heure: '05:10', moment: 'matin', libelle: 'du matin' },
+  { heure: '11:00', moment: 'midi', libelle: 'du midi' },
+  { heure: '18:00', moment: 'soir', libelle: 'du soir' }
+];
+
+async function verifierRappelTemperature() {
+  const maintenant = new Date();
+  const heureActuelle = String(maintenant.getHours()).padStart(2, '0') + ':' + String(maintenant.getMinutes()).padStart(2, '0');
+  const aujourdhui = dateLocale();
+
+  const rappelsDus = RAPPELS_TEMPERATURE.filter(r => heureActuelle >= r.heure);
+  if (rappelsDus.length === 0) return;
+
+  const { data } = await supabaseClient
+    .from('temperatures')
+    .select('moment')
+    .eq('atelier', atelier)
+    .eq('date_releve', aujourdhui);
+
+  const momentsFaits = new Set((data || []).map(t => t.moment));
+  const manquants = rappelsDus.filter(r => !momentsFaits.has(r.moment));
+
+  if (manquants.length === 0) return;
+
+  const cleSession = 'rappel_temp_vu_' + aujourdhui + '_' + manquants.map(m => m.moment).join('-');
+  if (sessionStorage.getItem(cleSession)) return;
+  sessionStorage.setItem(cleSession, '1');
+
+  afficherRappelTemperature(manquants);
+}
+
+function afficherRappelTemperature(manquants) {
+  const ancien = document.getElementById('overlay-rappel-temperature');
+  if (ancien) ancien.remove();
+
+  const overlay = document.createElement('div');
+  overlay.id = 'overlay-rappel-temperature';
+  overlay.style.cssText = 'position:fixed;inset:0;background:rgba(36,26,20,.7);display:flex;align-items:center;justify-content:center;z-index:10000;padding:20px;';
+  overlay.innerHTML = `
+    <div style="background:#fff;border-radius:18px;padding:28px;max-width:340px;width:100%;text-align:center;">
+      <div style="font-size:40px;margin-bottom:10px;">🌡️</div>
+      <h2 style="font-family:'Fraunces',serif;margin:0 0 10px;">Rappel température</h2>
+      <p style="opacity:.8;margin:0 0 20px;">Relevé${manquants.length > 1 ? 's' : ''} pas encore fait${manquants.length > 1 ? 's' : ''} : ${manquants.map(m => m.libelle).join(', ')}.</p>
+      <a href="temperatures.html?atelier=${atelier}" style="display:block;text-decoration:none;background:var(--accent);color:#241A14;padding:14px;border-radius:12px;font-weight:600;margin-bottom:8px;">Aller au relevé</a>
+      <button onclick="document.getElementById('overlay-rappel-temperature').remove()" style="width:100%;border:none;background:none;color:#999;padding:10px;">Plus tard</button>
+    </div>`;
+  document.body.appendChild(overlay);
+}
+
 initProfil((profil) => {
   window.profilActuel = profil;
   document.getElementById('date-commandes').value = dateLocale();
   verifierMessageDuJour();
+  verifierRappelTemperature();
+  setInterval(verifierRappelTemperature, 5 * 60 * 1000);
 
   // Seul le chef peut créer et assigner des tâches
   if (profil.role !== 'chef') {
