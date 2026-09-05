@@ -55,10 +55,11 @@
     <h2>Quantités</h2>
     <label>Jour</label>
     <input id="date-production" type="date" onchange="changerJourProduction()">
+    <button class="secondaire" onclick="chargerValeursExistantes()" style="margin-top:10px;">✏️ Modifier les données déjà enregistrées</button>
     <div id="liste-produits-production" style="margin-top:14px;"></div>
     <button class="primary" onclick="enregistrerProduction()">Enregistrer</button>
     <button class="secondaire" onclick="basculerDocument()">📄 Voir le document</button>
-    <button class="secondaire" onclick="telechargerProductionCSV()">⬇️ Télécharger ce jour</button>
+    <button class="secondaire" onclick="telechargerProductionMois()">⬇️ Télécharger le mois</button>
     <button class="secondaire" onclick="telechargerHistoriqueAnnuel()">⬇️ Télécharger l'historique (1 an)</button>
     <div class="document" id="document-production" style="display:none;"></div>
   </div>
@@ -114,16 +115,24 @@ async function obtenirTotalDuJour(dateVoulue) {
   return totaux;
 }
 
-// Recharge les champs avec les valeurs déjà enregistrées pour le jour choisi
-async function changerJourProduction() {
+// Changer de jour repart sur des champs vides (saisie rapide d'un nouveau jour)
+function changerJourProduction() {
+  PRODUITS_BOULANGERIE.forEach(p => {
+    const input = document.getElementById('prod-' + p.nom.replace(/\s+/g, '_'));
+    if (input) input.value = '';
+  });
+
+  const zoneDoc = document.getElementById('document-production');
+  if (zoneDoc.style.display === 'block') afficherDocument();
+}
+
+// Charge les valeurs déjà enregistrées pour corriger une erreur
+async function chargerValeursExistantes() {
   const totaux = await obtenirTotalDuJour();
   PRODUITS_BOULANGERIE.forEach(p => {
     const input = document.getElementById('prod-' + p.nom.replace(/\s+/g, '_'));
     if (input) input.value = totaux[p.nom] > 0 ? totaux[p.nom] : '';
   });
-
-  const zoneDoc = document.getElementById('document-production');
-  if (zoneDoc.style.display === 'block') afficherDocument();
 }
 
 async function enregistrerProduction() {
@@ -170,14 +179,30 @@ async function afficherDocument() {
   `;
 }
 
-function telechargerProductionCSV() {
+async function telechargerProductionMois() {
   const date = jourSelectionneProduction();
-  const lignes = [['Date', 'Produit', 'Quantité', 'Unité']];
+  const [an, mois] = date.split('-');
+  const premierJour = `${an}-${mois}-01`;
+  const dernierJourNum = new Date(parseInt(an), parseInt(mois), 0).getDate();
+  const dernierJour = `${an}-${mois}-${String(dernierJourNum).padStart(2, '0')}`;
 
+  const { data, error } = await supabaseClient
+    .from('production_jour')
+    .select('*')
+    .eq('atelier', 'boulangerie')
+    .gte('date_production', premierJour)
+    .lte('date_production', dernierJour);
+
+  if (error) { alert('Erreur : ' + error.message); return; }
+  if (!data || data.length === 0) { alert('Aucune donnée pour ce mois.'); return; }
+
+  const totaux = {};
+  data.forEach(l => { totaux[l.produit] = (totaux[l.produit] || 0) + parseFloat(l.quantite); });
+
+  const lignes = [['Mois', mois + '/' + an], ['']];
+  lignes.push(['Produit', 'Quantité totale', 'Unité']);
   PRODUITS_BOULANGERIE.forEach(p => {
-    const input = document.getElementById('prod-' + p.nom.replace(/\s+/g, '_'));
-    const quantite = parseFloat(input.value) || 0;
-    lignes.push([date.split('-').reverse().join('/'), p.nom, quantite, p.unite]);
+    if (totaux[p.nom]) lignes.push([p.nom, totaux[p.nom], p.unite]);
   });
 
   const csv = lignes.map(l => l.map(champ => `"${String(champ).replace(/"/g, '""')}"`).join(';')).join('\n');
@@ -185,7 +210,7 @@ function telechargerProductionCSV() {
   const url = URL.createObjectURL(blob);
   const lien = document.createElement('a');
   lien.href = url;
-  lien.download = 'production_boulangerie_' + date + '.csv';
+  lien.download = 'production_boulangerie_' + an + '-' + mois + '.csv';
   document.body.appendChild(lien);
   lien.click();
   document.body.removeChild(lien);
