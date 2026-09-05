@@ -9,7 +9,7 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
   :root{
-    --bg:#FAF7F2; --surface:#FFFFFF; --ink:rgba(32, 42, 67, 1);
+    --bg:#FAF7F2; --surface:#FFFFFF; --ink:#241A14;
     --accent:#C68A2E; --accent-dark:#9C6B1E;
     --danger:#B00020; --success:#16803C; --radius:18px;
   }
@@ -27,7 +27,7 @@
   .row{display:flex; gap:10px;}
   .row > div{flex:1;}
   button.primary{
-    margin-top:16px; width:100%; border:none; background:var(--accent); color:rgba(32, 42, 67, 1);
+    margin-top:16px; width:100%; border:none; background:var(--accent); color:#241A14;
     padding:14px; border-radius:12px; font-size:16px; font-weight:600;
   }
   button.primary:active{transform:scale(0.98);}
@@ -65,10 +65,10 @@
 <body>
 
 <header style="display:flex; align-items:center; justify-content:space-between; gap:10px;">
-  <a href="index.html" title="Accueil" style="display:inline-flex; align-items:center; justify-content:center; flex-shrink:0; width:52px; height:52px; border-radius:50%; background:var(--accent); color:rgba(32, 42, 67, 1); text-decoration:none; font-size:24px;">🏠</a>
+  <a href="index.html" title="Accueil" style="display:inline-flex; align-items:center; justify-content:center; flex-shrink:0; width:52px; height:52px; border-radius:50%; background:var(--accent); color:#241A14; text-decoration:none; font-size:24px;">🏠</a>
   <h1 style="margin:0; text-align:center; flex:1;">🛎️ Boutique</h1>
   <div style="display:flex; flex-direction:column; align-items:center; flex-shrink:0;">
-    <button onclick="effacerProfil()" title="Changer de profil" style="width:52px; height:52px; border-radius:50%; border:none; background:var(--accent); color:rgba(32, 42, 67, 1); font-size:26px; cursor:pointer; padding:0;">👨‍🍳</button>
+    <button onclick="effacerProfil()" title="Changer de profil" style="width:52px; height:52px; border-radius:50%; border:none; background:var(--accent); color:#241A14; font-size:26px; cursor:pointer; padding:0;">👨‍🍳</button>
     <span id="bandeau-profil" style="font-size:10px; opacity:.8; margin-top:3px; text-align:center;"></span>
   </div>
 </header>
@@ -120,9 +120,9 @@
   <div class="card">
     <h2>📋 Commandes à venir</h2>
     <div style="display:flex; align-items:center; gap:8px; margin-bottom:10px;">
-      <button onclick="changerSemaineCommandes(-1)" style="border:none; background:#f1e4c8; border-radius:8px; padding:8px 14px; font-size:16px; color:rgba(32, 42, 67, 1);">◀</button>
+      <button onclick="changerSemaineCommandes(-1)" style="border:none; background:#f1e4c8; border-radius:8px; padding:8px 14px; font-size:16px; color:#241A14;">◀</button>
       <span id="label-semaine-commandes" style="flex:1; text-align:center; font-size:13px; opacity:.7;"></span>
-      <button onclick="changerSemaineCommandes(1)" style="border:none; background:#f1e4c8; border-radius:8px; padding:8px 14px; font-size:16px; color:rgba(32, 42, 67, 1);">▶</button>
+      <button onclick="changerSemaineCommandes(1)" style="border:none; background:#f1e4c8; border-radius:8px; padding:8px 14px; font-size:16px; color:#241A14;">▶</button>
     </div>
     <label style="display:flex; align-items:center; gap:8px; font-size:14px; opacity:.8; margin-bottom:10px;">
       <input type="checkbox" id="toggle-recuperees" onchange="chargerCommandes()" style="width:auto;">
@@ -239,9 +239,9 @@ function afficherCommandes() {
     const actif = jourSelectionneCommandes === j;
     return `
       <div onclick="selectionnerJourCommandes('${j}')" style="cursor:pointer; text-align:center; padding:10px 6px; border-radius:10px; background:${actif ? 'var(--accent)' : '#f7f4ee'}; border:${actif ? '2px solid var(--accent-dark)' : '2px solid transparent'}; min-width:58px; flex-shrink:0; transform:${actif ? 'scale(1.05)' : 'none'};">
-        <div style="font-size:11px; opacity:${actif ? '.85' : '.6'}; text-transform:capitalize; color:${actif ? 'rgba(32, 42, 67, 1)' : 'inherit'}; font-weight:${actif ? '700' : '400'};">${datesSemaineCommandes[i].toLocaleDateString('fr-FR', { weekday: 'short' })}</div>
-        <div style="font-size:13px; font-weight:700; color:${actif ? 'rgba(32, 42, 67, 1)' : 'inherit'};">${j.slice(8,10)}/${j.slice(5,7)}</div>
-        <div style="font-size:16px; font-weight:700; color:${actif ? 'rgba(32, 42, 67, 1)' : 'var(--accent-dark)'}; margin-top:4px;">${nb}</div>
+        <div style="font-size:11px; opacity:${actif ? '.85' : '.6'}; text-transform:capitalize; color:${actif ? '#241A14' : 'inherit'}; font-weight:${actif ? '700' : '400'};">${datesSemaineCommandes[i].toLocaleDateString('fr-FR', { weekday: 'short' })}</div>
+        <div style="font-size:13px; font-weight:700; color:${actif ? '#241A14' : 'inherit'};">${j.slice(8,10)}/${j.slice(5,7)}</div>
+        <div style="font-size:16px; font-weight:700; color:${actif ? '#241A14' : 'var(--accent-dark)'}; margin-top:4px;">${nb}</div>
       </div>`;
   }).join('');
 
@@ -515,7 +515,7 @@ async function chargerRecurrences() {
       <strong>${r.client}</strong> — ${r.produit} (x${r.quantite})<br>
       <small style="opacity:.6;">${r.jours_semaine.map(j => NOMS_JOURS[j]).join(', ')}${r.heure_retrait ? ' · ' + r.heure_retrait.slice(0,5) : ''}</small>
       <div style="display:flex;gap:8px;margin-top:8px;">
-        <button onclick="basculerActifRecurrence('${r.id}', ${!r.active})" style="flex:1;border:none;background:${r.active ? '#f1e4c8' : '#dcf3e3'};color:rgba(32, 42, 67, 1);padding:8px;border-radius:8px;font-size:13px;">
+        <button onclick="basculerActifRecurrence('${r.id}', ${!r.active})" style="flex:1;border:none;background:${r.active ? '#f1e4c8' : '#dcf3e3'};color:#241A14;padding:8px;border-radius:8px;font-size:13px;">
           ${r.active ? '⏸️ Mettre en pause' : '▶️ Réactiver'}
         </button>
         <button onclick="supprimerRecurrence('${r.id}')" style="border:none;background:none;font-size:16px;opacity:.5;">🗑️</button>
@@ -631,7 +631,7 @@ async function ouvrirCatalogueCommande() {
   overlay.innerHTML = `
     <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px; gap:10px;">
       <h2 style="color:#fff; font-family:'Fraunces',serif; margin:0; font-size:20px;">🖼️ Catalogue</h2>
-      <button onclick="fermerCatalogueCommande()" style="border:none; background:#fff; color:rgba(32, 42, 67, 1); padding:10px 18px; border-radius:10px; font-weight:600; flex-shrink:0;">✕ Fermer</button>
+      <button onclick="fermerCatalogueCommande()" style="border:none; background:#fff; color:#241A14; padding:10px 18px; border-radius:10px; font-weight:600; flex-shrink:0;">✕ Fermer</button>
     </div>
     <input id="recherche-catalogue-commande" placeholder="Rechercher un produit..." oninput="filtrerCatalogueCommande()" style="width:100%; padding:14px; border-radius:12px; border:none; font-size:16px; margin-bottom:14px;">
     <div id="grille-catalogue-commande"><p style="color:#fff; opacity:.7;">Chargement...</p></div>
@@ -685,7 +685,7 @@ function ouvrirFicheCatalogueCommande(produit) {
         ${produit.description ? `<p style="font-size:14px; opacity:.8; margin:0 0 10px;">${produit.description}</p>` : ''}
         ${produit.allergenes ? `<div style="font-size:13px; font-weight:600; color:var(--danger, #B00020); margin-bottom:14px;">⚠️ ${produit.allergenes}</div>` : ''}
         <div style="display:flex; gap:10px;">
-          <button onclick='ajouterCatalogueAuPanier(${JSON.stringify(produit.nom)})' style="flex:1; border:none; background:var(--accent); color:rgba(32, 42, 67, 1); padding:12px; border-radius:10px; font-weight:600;">+ Ajouter</button>
+          <button onclick='ajouterCatalogueAuPanier(${JSON.stringify(produit.nom)})' style="flex:1; border:none; background:var(--accent); color:#241A14; padding:12px; border-radius:10px; font-weight:600;">+ Ajouter</button>
           <button onclick="document.getElementById('fiche-catalogue-commande').remove()" style="flex:1; border:1px solid #ccc; background:#fff; padding:12px; border-radius:10px;">Retour</button>
         </div>
       </div>
@@ -789,7 +789,7 @@ function ouvrirSelectionProduitEdition(lignes) {
             <option value="boulangerie">🍞 Boulangerie</option>
           </select>
         </div>
-        <button onclick='ajouterProduitACommande(${JSON.stringify(premiere)})' style="width:100%;border:none;background:var(--accent);color:rgba(32, 42, 67, 1);padding:12px;border-radius:10px;font-size:15px;font-weight:600;margin-top:10px;">+ Ajouter</button>
+        <button onclick='ajouterProduitACommande(${JSON.stringify(premiere)})' style="width:100%;border:none;background:var(--accent);color:#241A14;padding:12px;border-radius:10px;font-size:15px;font-weight:600;margin-top:10px;">+ Ajouter</button>
       </div>
 
       <button onclick="fermerSelectionProduitEdition()" style="width:100%;border:none;background:none;color:#999;padding:10px;margin-top:10px;font-size:14px;">Fermer</button>
