@@ -52,18 +52,20 @@
 
 <main>
   <div class="card">
-    <h2>Quantités du jour</h2>
-    <div class="date-jour" id="date-affichee"></div>
-    <div id="liste-produits-production"></div>
+    <h2>Quantités</h2>
+    <label>Jour</label>
+    <input id="date-production" type="date" onchange="changerJourProduction()">
+    <div id="liste-produits-production" style="margin-top:14px;"></div>
     <button class="primary" onclick="enregistrerProduction()">Enregistrer</button>
     <button class="secondaire" onclick="basculerDocument()">📄 Voir le document</button>
-    <button class="secondaire" onclick="telechargerProductionCSV()">⬇️ Télécharger</button>
+    <button class="secondaire" onclick="telechargerProductionCSV()">⬇️ Télécharger ce jour</button>
+    <button class="secondaire" onclick="telechargerHistoriqueAnnuel()">⬇️ Télécharger l'historique (1 an)</button>
     <div class="document" id="document-production" style="display:none;"></div>
   </div>
 </main>
 
-<script src="supabase-config.js?v=5"></script>
-<script src="profil.js?v=5"></script>
+<script src="supabase-config.js?v=6"></script>
+<script src="profil.js?v=6"></script>
 <script>
 
 const PRODUITS_BOULANGERIE = [
@@ -84,10 +86,6 @@ const PRODUITS_BOULANGERIE = [
 ];
 
 function afficherFormulaireProduction() {
-  const aujourdhui = dateLocale();
-  const [an, mois, jour] = aujourdhui.split('-');
-  document.getElementById('date-affichee').textContent = `${jour}/${mois}/${an}`;
-
   document.getElementById('liste-produits-production').innerHTML = PRODUITS_BOULANGERIE.map(p => `
     <div class="ligne-produit">
       <span>${p.nom} <small style="opacity:.5;">(${p.unite})</small></span>
@@ -96,47 +94,54 @@ function afficherFormulaireProduction() {
   `).join('');
 }
 
-async function obtenirTotalDuJour() {
-  const aujourdhui = dateLocale();
+function jourSelectionneProduction() {
+  return document.getElementById('date-production').value || dateLocale();
+}
+
+async function obtenirTotalDuJour(dateVoulue) {
+  const date = dateVoulue || jourSelectionneProduction();
   const { data, error } = await supabaseClient
     .from('production_jour')
     .select('*')
-    .eq('date_production', aujourdhui)
+    .eq('date_production', date)
     .eq('atelier', 'boulangerie');
 
   const totaux = {};
   PRODUITS_BOULANGERIE.forEach(p => totaux[p.nom] = 0);
   if (error || !data) return totaux;
 
-  data.forEach(l => { totaux[l.produit] = (totaux[l.produit] || 0) + parseFloat(l.quantite); });
+  data.forEach(l => { totaux[l.produit] = parseFloat(l.quantite); });
   return totaux;
 }
 
-async function enregistrerProduction() {
-  const aujourdhui = dateLocale();
-  const enregistre_par = window.profilActuel ? window.profilActuel.nom : null;
-
-  const lignes = PRODUITS_BOULANGERIE
-    .map(p => {
-      const input = document.getElementById('prod-' + p.nom.replace(/\s+/g, '_'));
-      return { produit: p.nom, unite: p.unite, quantite: parseFloat(input.value) || 0, date_production: aujourdhui, atelier: 'boulangerie', enregistre_par };
-    })
-    .filter(l => l.quantite > 0);
-
-  if (lignes.length === 0) {
-    alert('Merci de renseigner au moins une quantité.');
-    return;
-  }
-
-  const { error } = await supabaseClient.from('production_jour').insert(lignes);
-  if (error) { alert('Erreur : ' + error.message); return; }
-
+// Recharge les champs avec les valeurs déjà enregistrées pour le jour choisi
+async function changerJourProduction() {
+  const totaux = await obtenirTotalDuJour();
   PRODUITS_BOULANGERIE.forEach(p => {
     const input = document.getElementById('prod-' + p.nom.replace(/\s+/g, '_'));
-    if (input) input.value = '';
+    if (input) input.value = totaux[p.nom] > 0 ? totaux[p.nom] : '';
   });
 
-  alert('Ajouté au total de la journée.');
+  const zoneDoc = document.getElementById('document-production');
+  if (zoneDoc.style.display === 'block') afficherDocument();
+}
+
+async function enregistrerProduction() {
+  const date = jourSelectionneProduction();
+  const enregistre_par = window.profilActuel ? window.profilActuel.nom : null;
+
+  const lignes = PRODUITS_BOULANGERIE.map(p => {
+    const input = document.getElementById('prod-' + p.nom.replace(/\s+/g, '_'));
+    return { produit: p.nom, unite: p.unite, quantite: parseFloat(input.value) || 0, date_production: date, atelier: 'boulangerie', enregistre_par };
+  });
+
+  const { error } = await supabaseClient
+    .from('production_jour')
+    .upsert(lignes, { onConflict: 'produit,atelier,date_production' });
+
+  if (error) { alert('Erreur : ' + error.message); return; }
+
+  alert('Production enregistrée pour le ' + date.split('-').reverse().join('/') + '.');
 
   const zoneDoc = document.getElementById('document-production');
   if (zoneDoc.style.display === 'block') afficherDocument();
@@ -151,28 +156,28 @@ async function basculerDocument() {
 
 async function afficherDocument() {
   const zone = document.getElementById('document-production');
-  const totaux = await obtenirTotalDuJour();
-  const aujourdhui = dateLocale();
-  const [an, mois, jour] = aujourdhui.split('-');
+  const date = jourSelectionneProduction();
+  const totaux = await obtenirTotalDuJour(date);
 
   const lignesDoc = PRODUITS_BOULANGERIE.map(p => `
     <div class="ligne-doc"><span>${p.nom}</span><strong>${totaux[p.nom]} ${p.unite}</strong></div>
   `).join('');
 
   zone.innerHTML = `
-    <h3>Production du ${jour}/${mois}/${an}</h3>
-    <p style="opacity:.6; font-size:13px; margin-top:0;">Boulangerie — total cumulé de la journée</p>
+    <h3>Production du ${date.split('-').reverse().join('/')}</h3>
+    <p style="opacity:.6; font-size:13px; margin-top:0;">Boulangerie</p>
     ${lignesDoc}
   `;
 }
 
-async function telechargerProductionCSV() {
-  const aujourdhui = dateLocale();
-  const totaux = await obtenirTotalDuJour();
+function telechargerProductionCSV() {
+  const date = jourSelectionneProduction();
   const lignes = [['Date', 'Produit', 'Quantité', 'Unité']];
 
   PRODUITS_BOULANGERIE.forEach(p => {
-    lignes.push([aujourdhui.split('-').reverse().join('/'), p.nom, totaux[p.nom], p.unite]);
+    const input = document.getElementById('prod-' + p.nom.replace(/\s+/g, '_'));
+    const quantite = parseFloat(input.value) || 0;
+    lignes.push([date.split('-').reverse().join('/'), p.nom, quantite, p.unite]);
   });
 
   const csv = lignes.map(l => l.map(champ => `"${String(champ).replace(/"/g, '""')}"`).join(';')).join('\n');
@@ -180,7 +185,39 @@ async function telechargerProductionCSV() {
   const url = URL.createObjectURL(blob);
   const lien = document.createElement('a');
   lien.href = url;
-  lien.download = 'production_boulangerie_' + aujourdhui + '.csv';
+  lien.download = 'production_boulangerie_' + date + '.csv';
+  document.body.appendChild(lien);
+  lien.click();
+  document.body.removeChild(lien);
+  URL.revokeObjectURL(url);
+}
+
+async function telechargerHistoriqueAnnuel() {
+  const dansUnAn = new Date();
+  dansUnAn.setFullYear(dansUnAn.getFullYear() - 1);
+  const dateLimite = dateLocale(dansUnAn);
+
+  const { data, error } = await supabaseClient
+    .from('production_jour')
+    .select('*')
+    .eq('atelier', 'boulangerie')
+    .gte('date_production', dateLimite)
+    .order('date_production', { ascending: true });
+
+  if (error) { alert('Erreur : ' + error.message); return; }
+  if (!data || data.length === 0) { alert('Aucune donnée sur les 12 derniers mois.'); return; }
+
+  const lignes = [['Date', 'Produit', 'Quantité', 'Unité', 'Enregistré par']];
+  data.forEach(l => {
+    lignes.push([l.date_production.split('-').reverse().join('/'), l.produit, l.quantite, l.unite || '', l.enregistre_par || '']);
+  });
+
+  const csv = lignes.map(l => l.map(champ => `"${String(champ).replace(/"/g, '""')}"`).join(';')).join('\n');
+  const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const lien = document.createElement('a');
+  lien.href = url;
+  lien.download = 'historique_production_boulangerie_1an.csv';
   document.body.appendChild(lien);
   lien.click();
   document.body.removeChild(lien);
@@ -189,7 +226,9 @@ async function telechargerProductionCSV() {
 
 initProfil((profil) => {
   window.profilActuel = profil;
+  document.getElementById('date-production').value = dateLocale();
   afficherFormulaireProduction();
+  changerJourProduction();
 });
 
 </script>
