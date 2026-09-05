@@ -250,7 +250,7 @@ async function enregistrerCommandeDuMatin(clientId, nomClient, atelier) {
     if (quantite > 0) {
       lignes.push({
         client: nomClient, produit: p.produit, quantite, atelier,
-        date_retrait: dateChoisie, prise_par: auteur, notes: 'Client régulier'
+        date_retrait: dateChoisie, heure_retrait: '08:00', prise_par: auteur, notes: 'Client régulier'
       });
     }
   });
@@ -265,7 +265,7 @@ async function enregistrerCommandeDuMatin(clientId, nomClient, atelier) {
       if (produit && quantite > 0) {
         lignes.push({
           client: nomClient, produit, quantite, atelier,
-          date_retrait: dateChoisie, prise_par: auteur, notes: 'Client régulier — produit ponctuel'
+          date_retrait: dateChoisie, heure_retrait: '08:00', prise_par: auteur, notes: 'Client régulier — produit ponctuel'
         });
       }
     });
