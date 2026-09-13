@@ -142,6 +142,8 @@ async function chargerClientsReguliers() {
       <button class="primary" onclick='enregistrerCommandeDuMatin(${JSON.stringify(client.id)}, ${JSON.stringify(client.nom)}, ${JSON.stringify(client.atelier)})'>Enregistrer la commande</button>
       <button class="lien-historique" onclick="basculerHistorique('${client.id}', '${client.nom.replace(/'/g, "\\'")}')">📊 Voir l'historique</button>
       <button class="lien-historique" onclick="telechargerTotalMois('${client.nom.replace(/'/g, "\\'")}')">⬇️ Télécharger le total du mois</button>
+      <button class="lien-historique" onclick="basculerCommandesDuJour('${client.id}', '${client.nom.replace(/'/g, "\\'")}')">📋 Voir les commandes déjà enregistrées aujourd'hui</button>
+      <div id="commandes-jour-${client.id}" style="display:none; margin-top:10px;"></div>
       <div id="historique-${client.id}" style="display:none; margin-top:14px;"></div>
     `;
     conteneur.appendChild(carte);
@@ -291,6 +293,52 @@ async function enregistrerCommandeDuMatin(clientId, nomClient, atelier) {
 }
 
 let historiqueParClient = {};
+
+async function basculerCommandesDuJour(clientId, nomClient) {
+  const zone = document.getElementById('commandes-jour-' + clientId);
+
+  if (zone.style.display === 'block') {
+    zone.style.display = 'none';
+    return;
+  }
+
+  zone.style.display = 'block';
+  await chargerCommandesDuJour(clientId, nomClient);
+}
+
+async function chargerCommandesDuJour(clientId, nomClient) {
+  const zone = document.getElementById('commandes-jour-' + clientId);
+  zone.innerHTML = '<p class="empty">Chargement...</p>';
+
+  const champDate = document.getElementById('date-commande-' + clientId);
+  const dateChoisie = (champDate && champDate.value) || dateLocale();
+
+  const { data, error } = await supabaseClient
+    .from('commandes')
+    .select('*')
+    .eq('client', nomClient)
+    .eq('date_retrait', dateChoisie)
+    .order('created_at', { ascending: true });
+
+  if (error) { zone.innerHTML = `<p class="empty">Erreur : ${error.message}</p>`; return; }
+  if (!data || data.length === 0) { zone.innerHTML = `<p class="empty">Aucune commande enregistrée ce jour pour l'instant.</p>`; return; }
+
+  zone.innerHTML = data.map(c => `
+    <div style="display:flex; justify-content:space-between; align-items:center; gap:10px; padding:8px 0; border-bottom:1px solid #eee;">
+      <span>${c.produit} × ${c.quantite}${c.notes ? ' <small style="opacity:.5;">(' + c.notes + ')</small>' : ''}</span>
+      <button onclick="supprimerCommandeDuJour('${c.id}', '${clientId}', '${nomClient.replace(/'/g, "\\'")}')" style="border:none; background:none; font-size:18px; padding:4px;">🗑️</button>
+    </div>
+  `).join('');
+}
+
+async function supprimerCommandeDuJour(id, clientId, nomClient) {
+  if (!confirm('Supprimer définitivement cette ligne de commande ?')) return;
+
+  const { error } = await supabaseClient.from('commandes').delete().eq('id', id);
+  if (error) { alert('Erreur : ' + error.message); return; }
+
+  chargerCommandesDuJour(clientId, nomClient);
+}
 
 async function basculerHistorique(clientId, nomClient) {
   const zone = document.getElementById('historique-' + clientId);
