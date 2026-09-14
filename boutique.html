@@ -525,10 +525,27 @@ async function chargerRecurrences() {
 }
 
 async function basculerActifRecurrence(id, nouvelEtat) {
+  const { data: recurrence } = await supabaseClient.from('commandes_recurrentes').select('*').eq('id', id).single();
+
   const { error } = await supabaseClient.from('commandes_recurrentes').update({ active: nouvelEtat }).eq('id', id);
   if (error) { alert('Erreur : ' + error.message); return; }
+
+  if (!nouvelEtat && recurrence) {
+    // Mise en pause : on annule les commandes déjà créées par cette récurrence,
+    // à venir et pas encore préparées (on ne touche jamais celles déjà prêtes/passées)
+    await supabaseClient
+      .from('commandes')
+      .update({ statut: 'annule' })
+      .eq('client', recurrence.client)
+      .eq('produit', recurrence.produit)
+      .eq('statut', 'a_faire')
+      .eq('notes', 'Récurrence automatique')
+      .gte('date_retrait', dateLocale());
+  }
+
   chargerRecurrences();
-  if (nouvelEtat) { await genererCommandesRecurrentes(); chargerCommandes(); }
+  if (nouvelEtat) { await genererCommandesRecurrentes(); }
+  chargerCommandes();
 }
 
 async function supprimerRecurrence(id) {
