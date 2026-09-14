@@ -299,7 +299,7 @@ async function chargerCommandes() {
     return;
   }
 
-  const estAujourdhui = dateChoisie === aujourdhui;
+  const estAujourdhuiOuAvant = dateChoisie <= aujourdhui;
 
   // Regroupe les lignes par client pour n'afficher qu'un seul bloc par personne
   const groupes = {};
@@ -328,7 +328,7 @@ async function chargerCommandes() {
           <small>${heure ? 'Retrait ' + heure.slice(0,5) : 'Heure non précisée'}${notes ? ' · ' + notes : ''}</small>
           ${detailProduits}
         </span>
-        ${estAujourdhui && idsAFaire.length > 0 ? `
+        ${estAujourdhuiOuAvant && idsAFaire.length > 0 ? `
           <button class="small" onclick='marquerPretMultiple(${JSON.stringify(idsAFaire)}, this)'>Marquer prêt</button>` : ''}
       </div>
     `;
