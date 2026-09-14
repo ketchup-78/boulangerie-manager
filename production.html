@@ -59,9 +59,11 @@
     <div id="liste-produits-production" style="margin-top:14px;"></div>
     <button class="primary" onclick="enregistrerProduction()">Enregistrer</button>
     <button class="secondaire" onclick="basculerDocument()">📄 Voir le document</button>
+    <button class="secondaire" onclick="basculerTotalMois()">📊 Voir le total du mois</button>
     <button class="secondaire" onclick="telechargerProductionMois()">⬇️ Télécharger le mois</button>
     <button class="secondaire" onclick="telechargerHistoriqueAnnuel()">⬇️ Télécharger l'historique (1 an)</button>
     <div class="document" id="document-production" style="display:none;"></div>
+    <div class="document" id="total-mois-production" style="display:none;"></div>
   </div>
 </main>
 
@@ -179,8 +181,7 @@ async function afficherDocument() {
   `;
 }
 
-async function telechargerProductionMois() {
-  const date = jourSelectionneProduction();
+async function obtenirTotalDuMois(date) {
   const [an, mois] = date.split('-');
   const premierJour = `${an}-${mois}-01`;
   const dernierJourNum = new Date(parseInt(an), parseInt(mois), 0).getDate();
@@ -193,11 +194,42 @@ async function telechargerProductionMois() {
     .gte('date_production', premierJour)
     .lte('date_production', dernierJour);
 
-  if (error) { alert('Erreur : ' + error.message); return; }
-  if (!data || data.length === 0) { alert('Aucune donnée pour ce mois.'); return; }
+  if (error) return { erreur: error.message };
 
   const totaux = {};
-  data.forEach(l => { totaux[l.produit] = (totaux[l.produit] || 0) + parseFloat(l.quantite); });
+  (data || []).forEach(l => { totaux[l.produit] = (totaux[l.produit] || 0) + parseFloat(l.quantite); });
+
+  return { totaux, an, mois };
+}
+
+async function basculerTotalMois() {
+  const zone = document.getElementById('total-mois-production');
+  if (zone.style.display === 'block') { zone.style.display = 'none'; return; }
+
+  const date = jourSelectionneProduction();
+  const resultat = await obtenirTotalDuMois(date);
+
+  if (resultat.erreur) { zone.innerHTML = `<p>Erreur : ${resultat.erreur}</p>`; zone.style.display = 'block'; return; }
+
+  const lignesDoc = PRODUITS_BOULANGERIE
+    .filter(p => resultat.totaux[p.nom])
+    .map(p => `<div class="ligne-doc"><span>${p.nom}</span><strong>${resultat.totaux[p.nom]} ${p.unite}</strong></div>`)
+    .join('');
+
+  zone.innerHTML = `
+    <h3>Total du mois — ${resultat.mois}/${resultat.an}</h3>
+    <p style="opacity:.6; font-size:13px; margin-top:0;">Boulangerie</p>
+    ${lignesDoc || '<p style="opacity:.5;">Aucune donnée pour ce mois.</p>'}
+  `;
+  zone.style.display = 'block';
+}
+
+async function telechargerProductionMois() {
+  const date = jourSelectionneProduction();
+  const { totaux, an, mois, erreur } = await obtenirTotalDuMois(date);
+
+  if (erreur) { alert('Erreur : ' + erreur); return; }
+  if (!totaux || Object.keys(totaux).length === 0) { alert('Aucune donnée pour ce mois.'); return; }
 
   const lignes = [['Mois', mois + '/' + an], ['']];
   lignes.push(['Produit', 'Quantité totale', 'Unité']);
