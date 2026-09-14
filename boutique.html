@@ -227,7 +227,7 @@ async function chargerCommandes() {
 }
 
 function changerSemaineCommandes(direction) {
-  decalageSemaineCommandes = Math.max(0, decalageSemaineCommandes + direction);
+  decalageSemaineCommandes += direction;
   chargerCommandes();
 }
 
