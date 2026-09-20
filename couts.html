@@ -60,22 +60,29 @@
     <h2>🧂 Prix des matières premières</h2>
     <label>Nom</label>
     <input id="nom-matiere" placeholder="ex: Farine T65">
+
+    <label>Unité utilisée dans les recettes</label>
+    <select id="unite-matiere">
+      <option value="kg">kg</option>
+      <option value="g">g</option>
+      <option value="L">L</option>
+      <option value="ml">ml</option>
+      <option value="pièce">pièce</option>
+    </select>
+
+    <label style="margin-top:14px;">Ce que tu as vraiment payé</label>
     <div class="row">
       <div>
-        <label>Unité</label>
-        <select id="unite-matiere">
-          <option value="kg">kg</option>
-          <option value="g">g</option>
-          <option value="L">L</option>
-          <option value="ml">ml</option>
-          <option value="pièce">pièce</option>
-        </select>
+        <label style="margin-top:0;">Prix payé (€)</label>
+        <input id="prix-total-matiere" type="number" step="0.01" min="0" placeholder="ex: 18" oninput="calculerPrixUnitaireMatiere()">
       </div>
       <div>
-        <label>Prix par unité (€)</label>
-        <input id="prix-matiere" type="number" step="0.01" min="0" placeholder="ex: 0.85">
+        <label style="margin-top:0;">Pour combien (dans l'unité ci-dessus)</label>
+        <input id="quantite-conditionnement-matiere" type="number" step="0.01" min="0.01" placeholder="ex: 25" oninput="calculerPrixUnitaireMatiere()">
       </div>
     </div>
+    <p id="apercu-prix-unitaire" style="font-size:14px; opacity:.7; margin:8px 0 0;"></p>
+
     <button class="primary" onclick="ajouterMatiere()">Ajouter / Mettre à jour</button>
     <div id="liste-matieres" style="margin-top:14px;"></div>
   </div>
@@ -159,18 +166,35 @@ function afficherMatieres() {
   `).join('');
 }
 
+function calculerPrixUnitaireMatiere() {
+  const prixTotal = parseFloat(document.getElementById('prix-total-matiere').value);
+  const quantite = parseFloat(document.getElementById('quantite-conditionnement-matiere').value);
+  const unite = document.getElementById('unite-matiere').value;
+  const apercu = document.getElementById('apercu-prix-unitaire');
+
+  if (!isNaN(prixTotal) && quantite > 0) {
+    const prixUnitaire = prixTotal / quantite;
+    apercu.textContent = `Soit ${prixUnitaire.toFixed(4)} € / ${unite}`;
+    return prixUnitaire;
+  }
+  apercu.textContent = '';
+  return null;
+}
+
 async function ajouterMatiere() {
   const nom = document.getElementById('nom-matiere').value.trim();
   const unite = document.getElementById('unite-matiere').value;
-  const prix_unitaire = parseFloat(document.getElementById('prix-matiere').value);
+  const prix_unitaire = calculerPrixUnitaireMatiere();
 
-  if (!nom || isNaN(prix_unitaire)) { alert('Merci de renseigner le nom et le prix.'); return; }
+  if (!nom || prix_unitaire === null) { alert('Merci de renseigner le nom, le prix payé et la quantité correspondante.'); return; }
 
   const { error } = await supabaseClient.from('prix_matieres').insert([{ nom, unite, prix_unitaire }]);
   if (error) { alert('Erreur : ' + error.message); return; }
 
   document.getElementById('nom-matiere').value = '';
-  document.getElementById('prix-matiere').value = '';
+  document.getElementById('prix-total-matiere').value = '';
+  document.getElementById('quantite-conditionnement-matiere').value = '';
+  document.getElementById('apercu-prix-unitaire').textContent = '';
   chargerMatieres();
 }
 
