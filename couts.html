@@ -61,13 +61,11 @@
     <label>Nom</label>
     <input id="nom-matiere" placeholder="ex: Farine T65">
 
-    <label>Unité utilisée dans les recettes</label>
-    <select id="unite-matiere">
-      <option value="kg">kg</option>
-      <option value="g">g</option>
-      <option value="L">L</option>
-      <option value="ml">ml</option>
-      <option value="pièce">pièce</option>
+    <label>Comment tu l'achètes</label>
+    <select id="unite-achat-matiere" onchange="calculerPrixUnitaireMatiere()">
+      <option value="kg">Au kilo (kg) → utilisée en grammes dans les recettes</option>
+      <option value="L">Au litre (L) → utilisée en millilitres dans les recettes</option>
+      <option value="pièce">À la pièce → utilisée en pièces dans les recettes</option>
     </select>
 
     <label style="margin-top:14px;">Ce que tu as vraiment payé</label>
@@ -77,7 +75,7 @@
         <input id="prix-total-matiere" type="number" step="0.01" min="0" placeholder="ex: 18" oninput="calculerPrixUnitaireMatiere()">
       </div>
       <div>
-        <label style="margin-top:0;">Pour combien (dans l'unité ci-dessus)</label>
+        <label style="margin-top:0;" id="label-quantite-achat">Pour combien de kg</label>
         <input id="quantite-conditionnement-matiere" type="number" step="0.01" min="0.01" placeholder="ex: 25" oninput="calculerPrixUnitaireMatiere()">
       </div>
     </div>
@@ -166,16 +164,25 @@ function afficherMatieres() {
   `).join('');
 }
 
+const CONVERSIONS_ACHAT = {
+  kg: { uniteRecette: 'g', facteur: 1000, libelleQuantite: 'Pour combien de kg' },
+  L: { uniteRecette: 'ml', facteur: 1000, libelleQuantite: 'Pour combien de litres' },
+  pièce: { uniteRecette: 'pièce', facteur: 1, libelleQuantite: 'Pour combien de pièces' }
+};
+
 function calculerPrixUnitaireMatiere() {
+  const uniteAchat = document.getElementById('unite-achat-matiere').value;
+  const conversion = CONVERSIONS_ACHAT[uniteAchat];
+  document.getElementById('label-quantite-achat').textContent = conversion.libelleQuantite;
+
   const prixTotal = parseFloat(document.getElementById('prix-total-matiere').value);
-  const quantite = parseFloat(document.getElementById('quantite-conditionnement-matiere').value);
-  const unite = document.getElementById('unite-matiere').value;
+  const quantiteAchat = parseFloat(document.getElementById('quantite-conditionnement-matiere').value);
   const apercu = document.getElementById('apercu-prix-unitaire');
 
-  if (!isNaN(prixTotal) && quantite > 0) {
-    const prixUnitaire = prixTotal / quantite;
-    apercu.textContent = `Soit ${prixUnitaire.toFixed(4)} € / ${unite}`;
-    return prixUnitaire;
+  if (!isNaN(prixTotal) && quantiteAchat > 0) {
+    const prixUnitaire = prixTotal / (quantiteAchat * conversion.facteur);
+    apercu.textContent = `Soit ${prixUnitaire.toFixed(4)} € / ${conversion.uniteRecette}`;
+    return { prixUnitaire, uniteRecette: conversion.uniteRecette };
   }
   apercu.textContent = '';
   return null;
@@ -183,12 +190,11 @@ function calculerPrixUnitaireMatiere() {
 
 async function ajouterMatiere() {
   const nom = document.getElementById('nom-matiere').value.trim();
-  const unite = document.getElementById('unite-matiere').value;
-  const prix_unitaire = calculerPrixUnitaireMatiere();
+  const resultat = calculerPrixUnitaireMatiere();
 
-  if (!nom || prix_unitaire === null) { alert('Merci de renseigner le nom, le prix payé et la quantité correspondante.'); return; }
+  if (!nom || !resultat) { alert('Merci de renseigner le nom, le prix payé et la quantité correspondante.'); return; }
 
-  const { error } = await supabaseClient.from('prix_matieres').insert([{ nom, unite, prix_unitaire }]);
+  const { error } = await supabaseClient.from('prix_matieres').insert([{ nom, unite: resultat.uniteRecette, prix_unitaire: resultat.prixUnitaire }]);
   if (error) { alert('Erreur : ' + error.message); return; }
 
   document.getElementById('nom-matiere').value = '';
