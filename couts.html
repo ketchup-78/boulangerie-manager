@@ -95,6 +95,16 @@
     <div id="lignes-ingredients-fiche"></div>
     <button class="secondaire" onclick="ajouterLigneIngredient()">+ Ajouter un ingrédient</button>
 
+    <label style="margin-top:14px;">Cette recette fait combien de pains (ou pièces) ?</label>
+    <div class="row">
+      <div>
+        <input id="nombre-unites-fiche" type="number" step="1" min="1" value="1" oninput="recalculerFiche()">
+      </div>
+      <div>
+        <input id="poids-unite-fiche" type="number" step="1" min="0" placeholder="Poids d'1 pièce (g), optionnel">
+      </div>
+    </div>
+
     <label style="margin-top:14px;">Marge souhaitée (%)</label>
     <input id="marge-fiche" type="number" step="1" min="0" max="99" value="70" oninput="recalculerFiche()">
 
@@ -211,24 +221,32 @@ function recalculerFiche() {
   });
 
   const marge = parseFloat(document.getElementById('marge-fiche').value) || 0;
-  const prixVente = marge < 100 ? coutTotal / (1 - marge / 100) : coutTotal;
-  const margeEuros = prixVente - coutTotal;
+  const nombreUnites = parseFloat(document.getElementById('nombre-unites-fiche').value) || 1;
+  const poidsUnite = parseFloat(document.getElementById('poids-unite-fiche').value) || null;
+
+  const coutParUnite = coutTotal / nombreUnites;
+  const prixVenteUnite = marge < 100 ? coutParUnite / (1 - marge / 100) : coutParUnite;
+  const margeEurosUnite = prixVenteUnite - coutParUnite;
 
   const zone = document.getElementById('resultat-fiche');
   zone.innerHTML = `
     ${detail.map(d => `<div class="ligne"><span>${d.nom} (${d.quantite} ${d.unite})</span><span>${d.cout.toFixed(2)} €</span></div>`).join('')}
-    <div class="ligne total"><span>Coût de revient</span><span>${coutTotal.toFixed(2)} €</span></div>
-    <div class="ligne"><span>Marge (${marge}%)</span><span>${margeEuros.toFixed(2)} €</span></div>
-    <div class="prix-vente">Prix de vente conseillé : ${prixVente.toFixed(2)} €</div>
+    <div class="ligne total"><span>Coût total de la fournée</span><span>${coutTotal.toFixed(2)} €</span></div>
+    <div class="ligne"><span>Fait ${nombreUnites} pain(s)${poidsUnite ? ' de ' + poidsUnite + ' g' : ''}</span><span></span></div>
+    <div class="ligne total" style="border-top:2px solid #e0dace; margin-top:10px; padding-top:12px;"><span>Coût par pain</span><span>${coutParUnite.toFixed(2)} €</span></div>
+    <div class="ligne"><span>Marge par pain (${marge}%)</span><span>${margeEurosUnite.toFixed(2)} €</span></div>
+    <div class="prix-vente">Prix de vente conseillé : ${prixVenteUnite.toFixed(2)} € / pain</div>
   `;
 
-  return { coutTotal, prixVente, detail, marge };
+  return { coutTotal, coutParUnite, prixVenteUnite, nombreUnites, poidsUnite, detail, marge };
 }
 
 async function enregistrerFiche() {
   const nom_produit = document.getElementById('nom-fiche').value.trim();
   const atelier = document.getElementById('atelier-fiche').value;
   const marge_pourcentage = parseFloat(document.getElementById('marge-fiche').value) || 0;
+  const nombre_unites = parseFloat(document.getElementById('nombre-unites-fiche').value) || 1;
+  const poids_unite_g = parseFloat(document.getElementById('poids-unite-fiche').value) || null;
   const cree_par = window.profilActuel ? window.profilActuel.nom : null;
 
   if (!nom_produit) { alert('Merci de donner un nom au produit.'); return; }
@@ -237,18 +255,20 @@ async function enregistrerFiche() {
   if (resultat.detail.length === 0) { alert('Ajoute au moins un ingrédient.'); return; }
 
   const { error } = await supabaseClient.from('fiches_cout').insert([{
-    nom_produit, atelier, marge_pourcentage,
+    nom_produit, atelier, marge_pourcentage, nombre_unites, poids_unite_g,
     lignes: resultat.detail,
     cree_par
   }]);
 
   if (error) { alert('Erreur : ' + error.message); return; }
 
-  alert('Fiche enregistrée — coût ' + resultat.coutTotal.toFixed(2) + ' €, prix conseillé ' + resultat.prixVente.toFixed(2) + ' €.');
+  alert('Fiche enregistrée — coût par pain ' + resultat.coutParUnite.toFixed(2) + ' €, prix conseillé ' + resultat.prixVenteUnite.toFixed(2) + ' € / pain.');
 
   document.getElementById('nom-fiche').value = '';
   document.getElementById('lignes-ingredients-fiche').innerHTML = '';
   document.getElementById('marge-fiche').value = 70;
+  document.getElementById('nombre-unites-fiche').value = 1;
+  document.getElementById('poids-unite-fiche').value = '';
   recalculerFiche();
   chargerFiches();
 }
@@ -261,12 +281,14 @@ async function chargerFiches() {
   if (!data || data.length === 0) { conteneur.innerHTML = '<p class="empty">Aucune fiche enregistrée pour l\'instant.</p>'; return; }
 
   conteneur.innerHTML = data.map(f => {
-    const cout = (f.lignes || []).reduce((s, l) => s + l.cout, 0);
-    const prixVente = f.marge_pourcentage < 100 ? cout / (1 - f.marge_pourcentage / 100) : cout;
+    const coutTotal = (f.lignes || []).reduce((s, l) => s + l.cout, 0);
+    const nombreUnites = f.nombre_unites || 1;
+    const coutParUnite = coutTotal / nombreUnites;
+    const prixVenteUnite = f.marge_pourcentage < 100 ? coutParUnite / (1 - f.marge_pourcentage / 100) : coutParUnite;
     return `
       <button class="fiche-tuile" onclick='chargerFicheExistante(${JSON.stringify(f)})'>
         <strong>${f.nom_produit}</strong>
-        <small>Coût ${cout.toFixed(2)} € · Marge ${f.marge_pourcentage}% · Vente conseillée ${prixVente.toFixed(2)} €</small>
+        <small>${nombreUnites} pain(s) · Coût/pain ${coutParUnite.toFixed(2)} € · Marge ${f.marge_pourcentage}% · Vente conseillée ${prixVenteUnite.toFixed(2)} € / pain</small>
       </button>
     `;
   }).join('');
@@ -276,6 +298,8 @@ function chargerFicheExistante(fiche) {
   document.getElementById('nom-fiche').value = fiche.nom_produit;
   document.getElementById('atelier-fiche').value = fiche.atelier || 'patisserie';
   document.getElementById('marge-fiche').value = fiche.marge_pourcentage;
+  document.getElementById('nombre-unites-fiche').value = fiche.nombre_unites || 1;
+  document.getElementById('poids-unite-fiche').value = fiche.poids_unite_g || '';
   document.getElementById('lignes-ingredients-fiche').innerHTML = '';
 
   (fiche.lignes || []).forEach(l => {
