@@ -1,0 +1,304 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Prix de revient — Boulangerie Manager</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:wght@600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+  :root{
+    --bg:#FAF7F2; --surface:#FFFFFF; --ink:#241A14;
+    --accent:#C68A2E; --accent-dark:#9C6B1E; --danger:#B00020; --success:#16803C; --radius:18px;
+  }
+  *{box-sizing:border-box;}
+  body{font-family:'Inter',Arial,sans-serif; margin:0; background:var(--bg); color:var(--ink);}
+  header{background:var(--ink); color:#fff; padding:22px 20px;}
+  header h1{margin:0; font-family:'Fraunces',serif; font-size:22px;}
+  main{padding:20px; max-width:700px; margin:auto;}
+  .card{background:var(--surface); border-radius:var(--radius); padding:20px; margin-bottom:16px; box-shadow:0 2px 8px rgba(0,0,0,.06);}
+  .card h2{margin-top:0; font-family:'Fraunces',serif; font-size:19px;}
+  label{display:block; font-size:13px; opacity:.7; margin:10px 0 4px;}
+  input, select{width:100%; padding:12px; border-radius:10px; border:1px solid #ddd; font-size:15px; font-family:inherit;}
+  .row{display:flex; gap:10px;}
+  .row > div{flex:1;}
+  button.primary{
+    margin-top:16px; width:100%; border:none; background:var(--accent); color:#241A14;
+    padding:14px; border-radius:12px; font-size:16px; font-weight:600;
+  }
+  button.primary:active{transform:scale(0.98);}
+  button.secondaire{width:100%; border:1px solid #ddd; background:#fff; color:var(--ink); padding:12px; border-radius:12px; font-size:14px; margin-top:8px;}
+  .ligne-ingredient{display:flex; gap:8px; align-items:center; margin-bottom:8px;}
+  .ligne-ingredient select{flex:2;}
+  .ligne-ingredient input{flex:1; width:auto;}
+  .ligne-ingredient button{border:none; background:none; font-size:18px; padding:4px; flex-shrink:0;}
+  .empty{opacity:.5; font-size:14px; padding:10px 0;}
+  .resultat{background:#f7f4ee; border-radius:14px; padding:16px; margin-top:16px;}
+  .resultat .ligne{display:flex; justify-content:space-between; padding:6px 0; font-size:15px;}
+  .resultat .ligne.total{font-weight:700; border-top:1px solid #e0dace; margin-top:6px; padding-top:10px;}
+  .resultat .prix-vente{font-size:24px; font-weight:700; color:var(--accent-dark); text-align:center; margin-top:10px;}
+  .fiche-tuile{width:100%; text-align:left; background:#fff; border:none; border-radius:14px; padding:14px 16px; margin-bottom:8px; box-shadow:0 2px 8px rgba(0,0,0,.06); cursor:pointer; font-family:inherit;}
+  .fiche-tuile strong{font-family:'Fraunces',serif;}
+  .fiche-tuile small{display:block; opacity:.6; margin-top:2px;}
+</style>
+</head>
+<body>
+
+<header style="display:flex; align-items:center; justify-content:space-between; gap:10px;">
+  <a href="index.html" title="Accueil" style="display:inline-flex; align-items:center; justify-content:center; flex-shrink:0; width:52px; height:52px; border-radius:50%; background:var(--accent); color:#241A14; text-decoration:none; font-size:24px;">🏠</a>
+  <h1 style="margin:0; text-align:center; flex:1;">💰 Prix de revient</h1>
+  <div style="display:flex; flex-direction:column; align-items:center; flex-shrink:0;">
+    <button onclick="effacerProfil()" title="Changer de profil" style="width:52px; height:52px; border-radius:50%; border:none; background:var(--accent); color:#241A14; font-size:26px; cursor:pointer; padding:0;">👨‍🍳</button>
+    <span id="bandeau-profil" style="font-size:10px; opacity:.8; margin-top:3px; text-align:center;"></span>
+  </div>
+</header>
+
+<main id="zone-principale">
+
+  <div class="card">
+    <h2>🧂 Prix des matières premières</h2>
+    <label>Nom</label>
+    <input id="nom-matiere" placeholder="ex: Farine T65">
+    <div class="row">
+      <div>
+        <label>Unité</label>
+        <select id="unite-matiere">
+          <option value="kg">kg</option>
+          <option value="g">g</option>
+          <option value="L">L</option>
+          <option value="ml">ml</option>
+          <option value="pièce">pièce</option>
+        </select>
+      </div>
+      <div>
+        <label>Prix par unité (€)</label>
+        <input id="prix-matiere" type="number" step="0.01" min="0" placeholder="ex: 0.85">
+      </div>
+    </div>
+    <button class="primary" onclick="ajouterMatiere()">Ajouter / Mettre à jour</button>
+    <div id="liste-matieres" style="margin-top:14px;"></div>
+  </div>
+
+  <div class="card">
+    <h2>📋 Nouvelle fiche de coût</h2>
+    <label>Nom du produit</label>
+    <input id="nom-fiche" placeholder="ex: Tarte aux fraises">
+
+    <label>Atelier</label>
+    <select id="atelier-fiche">
+      <option value="patisserie">🧁 Pâtisserie</option>
+      <option value="boulangerie">🍞 Boulangerie</option>
+    </select>
+
+    <label style="margin-top:14px;">Ingrédients utilisés</label>
+    <div id="lignes-ingredients-fiche"></div>
+    <button class="secondaire" onclick="ajouterLigneIngredient()">+ Ajouter un ingrédient</button>
+
+    <label style="margin-top:14px;">Marge souhaitée (%)</label>
+    <input id="marge-fiche" type="number" step="1" min="0" max="99" value="70" oninput="recalculerFiche()">
+
+    <div class="resultat" id="resultat-fiche"></div>
+
+    <button class="primary" onclick="enregistrerFiche()">Enregistrer la fiche</button>
+  </div>
+
+  <div class="card">
+    <h2>📚 Fiches enregistrées</h2>
+    <div id="liste-fiches"><p class="empty">Chargement...</p></div>
+  </div>
+
+</main>
+
+<script src="supabase-config.js?v=7"></script>
+<script src="profil.js?v=7"></script>
+<script>
+
+let matieresPremieres = [];
+
+async function chargerMatieres() {
+  const { data, error } = await supabaseClient.from('prix_matieres').select('*').order('nom');
+  matieresPremieres = data || [];
+  afficherMatieres();
+  remplirSelectsIngredients();
+}
+
+function afficherMatieres() {
+  const conteneur = document.getElementById('liste-matieres');
+  if (matieresPremieres.length === 0) { conteneur.innerHTML = '<p class="empty">Aucune matière première pour l\'instant.</p>'; return; }
+
+  conteneur.innerHTML = matieresPremieres.map(m => `
+    <div style="display:flex; justify-content:space-between; align-items:center; padding:8px 0; border-bottom:1px solid #eee;">
+      <span>${m.nom}</span>
+      <span style="opacity:.7;">${m.prix_unitaire.toFixed(2)} € / ${m.unite}</span>
+      <button onclick="supprimerMatiere('${m.id}')" style="border:none; background:none; font-size:16px; opacity:.4;">🗑️</button>
+    </div>
+  `).join('');
+}
+
+async function ajouterMatiere() {
+  const nom = document.getElementById('nom-matiere').value.trim();
+  const unite = document.getElementById('unite-matiere').value;
+  const prix_unitaire = parseFloat(document.getElementById('prix-matiere').value);
+
+  if (!nom || isNaN(prix_unitaire)) { alert('Merci de renseigner le nom et le prix.'); return; }
+
+  const { error } = await supabaseClient.from('prix_matieres').insert([{ nom, unite, prix_unitaire }]);
+  if (error) { alert('Erreur : ' + error.message); return; }
+
+  document.getElementById('nom-matiere').value = '';
+  document.getElementById('prix-matiere').value = '';
+  chargerMatieres();
+}
+
+async function supprimerMatiere(id) {
+  if (!confirm('Supprimer cette matière première ? Les fiches déjà enregistrées ne seront pas affectées.')) return;
+  const { error } = await supabaseClient.from('prix_matieres').delete().eq('id', id);
+  if (error) { alert('Erreur : ' + error.message); return; }
+  chargerMatieres();
+}
+
+// ---------- FICHE DE COÛT ----------
+let compteurLignes = 0;
+
+function ajouterLigneIngredient(matiereId, quantite) {
+  compteurLignes++;
+  const idLigne = 'ligne-' + compteurLignes;
+  const conteneur = document.getElementById('lignes-ingredients-fiche');
+
+  const div = document.createElement('div');
+  div.className = 'ligne-ingredient';
+  div.id = idLigne;
+  div.innerHTML = `
+    <select onchange="recalculerFiche()" data-role="matiere">${optionsMatieres()}</select>
+    <input type="number" step="0.01" min="0" placeholder="Qté" oninput="recalculerFiche()" data-role="quantite">
+    <button onclick="document.getElementById('${idLigne}').remove(); recalculerFiche();">🗑️</button>
+  `;
+  conteneur.appendChild(div);
+
+  if (matiereId) div.querySelector('[data-role="matiere"]').value = matiereId;
+  if (quantite) div.querySelector('[data-role="quantite"]').value = quantite;
+
+  recalculerFiche();
+}
+
+function optionsMatieres() {
+  return matieresPremieres.map(m => `<option value="${m.id}">${m.nom} (${m.unite})</option>`).join('');
+}
+
+function remplirSelectsIngredients() {
+  document.querySelectorAll('[data-role="matiere"]').forEach(select => {
+    const valeurActuelle = select.value;
+    select.innerHTML = optionsMatieres();
+    if (valeurActuelle) select.value = valeurActuelle;
+  });
+}
+
+function recalculerFiche() {
+  const lignes = Array.from(document.querySelectorAll('#lignes-ingredients-fiche .ligne-ingredient'));
+  let coutTotal = 0;
+  const detail = [];
+
+  lignes.forEach(ligne => {
+    const matiereId = ligne.querySelector('[data-role="matiere"]').value;
+    const quantite = parseFloat(ligne.querySelector('[data-role="quantite"]').value) || 0;
+    const matiere = matieresPremieres.find(m => m.id === matiereId);
+    if (matiere && quantite > 0) {
+      const cout = matiere.prix_unitaire * quantite;
+      coutTotal += cout;
+      detail.push({ nom: matiere.nom, quantite, unite: matiere.unite, cout });
+    }
+  });
+
+  const marge = parseFloat(document.getElementById('marge-fiche').value) || 0;
+  const prixVente = marge < 100 ? coutTotal / (1 - marge / 100) : coutTotal;
+  const margeEuros = prixVente - coutTotal;
+
+  const zone = document.getElementById('resultat-fiche');
+  zone.innerHTML = `
+    ${detail.map(d => `<div class="ligne"><span>${d.nom} (${d.quantite} ${d.unite})</span><span>${d.cout.toFixed(2)} €</span></div>`).join('')}
+    <div class="ligne total"><span>Coût de revient</span><span>${coutTotal.toFixed(2)} €</span></div>
+    <div class="ligne"><span>Marge (${marge}%)</span><span>${margeEuros.toFixed(2)} €</span></div>
+    <div class="prix-vente">Prix de vente conseillé : ${prixVente.toFixed(2)} €</div>
+  `;
+
+  return { coutTotal, prixVente, detail, marge };
+}
+
+async function enregistrerFiche() {
+  const nom_produit = document.getElementById('nom-fiche').value.trim();
+  const atelier = document.getElementById('atelier-fiche').value;
+  const marge_pourcentage = parseFloat(document.getElementById('marge-fiche').value) || 0;
+  const cree_par = window.profilActuel ? window.profilActuel.nom : null;
+
+  if (!nom_produit) { alert('Merci de donner un nom au produit.'); return; }
+
+  const resultat = recalculerFiche();
+  if (resultat.detail.length === 0) { alert('Ajoute au moins un ingrédient.'); return; }
+
+  const { error } = await supabaseClient.from('fiches_cout').insert([{
+    nom_produit, atelier, marge_pourcentage,
+    lignes: resultat.detail,
+    cree_par
+  }]);
+
+  if (error) { alert('Erreur : ' + error.message); return; }
+
+  alert('Fiche enregistrée — coût ' + resultat.coutTotal.toFixed(2) + ' €, prix conseillé ' + resultat.prixVente.toFixed(2) + ' €.');
+
+  document.getElementById('nom-fiche').value = '';
+  document.getElementById('lignes-ingredients-fiche').innerHTML = '';
+  document.getElementById('marge-fiche').value = 70;
+  recalculerFiche();
+  chargerFiches();
+}
+
+async function chargerFiches() {
+  const conteneur = document.getElementById('liste-fiches');
+  const { data, error } = await supabaseClient.from('fiches_cout').select('*').order('nom_produit');
+
+  if (error) { conteneur.innerHTML = `<p class="empty">Erreur : ${error.message}</p>`; return; }
+  if (!data || data.length === 0) { conteneur.innerHTML = '<p class="empty">Aucune fiche enregistrée pour l\'instant.</p>'; return; }
+
+  conteneur.innerHTML = data.map(f => {
+    const cout = (f.lignes || []).reduce((s, l) => s + l.cout, 0);
+    const prixVente = f.marge_pourcentage < 100 ? cout / (1 - f.marge_pourcentage / 100) : cout;
+    return `
+      <button class="fiche-tuile" onclick='chargerFicheExistante(${JSON.stringify(f)})'>
+        <strong>${f.nom_produit}</strong>
+        <small>Coût ${cout.toFixed(2)} € · Marge ${f.marge_pourcentage}% · Vente conseillée ${prixVente.toFixed(2)} €</small>
+      </button>
+    `;
+  }).join('');
+}
+
+function chargerFicheExistante(fiche) {
+  document.getElementById('nom-fiche').value = fiche.nom_produit;
+  document.getElementById('atelier-fiche').value = fiche.atelier || 'patisserie';
+  document.getElementById('marge-fiche').value = fiche.marge_pourcentage;
+  document.getElementById('lignes-ingredients-fiche').innerHTML = '';
+
+  (fiche.lignes || []).forEach(l => {
+    const matiere = matieresPremieres.find(m => m.nom === l.nom && m.unite === l.unite);
+    ajouterLigneIngredient(matiere ? matiere.id : null, l.quantite);
+  });
+
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+initProfil((profil) => {
+  window.profilActuel = profil;
+
+  if (profil.role !== 'chef') {
+    document.getElementById('zone-principale').innerHTML =
+      '<div class="card"><p class="empty">Cette page est réservée au chef.</p></div>';
+    return;
+  }
+
+  chargerMatieres();
+  chargerFiches();
+});
+
+</script>
+</body>
+</html>
