@@ -95,14 +95,27 @@
     <div id="lignes-ingredients-fiche"></div>
     <button class="secondaire" onclick="ajouterLigneIngredient()">+ Ajouter un ingrédient</button>
 
-    <label style="margin-top:14px;">Cette recette fait combien de pains (ou pièces) ?</label>
-    <div class="row">
-      <div>
-        <input id="nombre-unites-fiche" type="number" step="1" min="1" value="1" oninput="recalculerFiche()">
+    <label style="margin-top:14px;">Ce produit est vendu...</label>
+    <select id="mode-vente-fiche" onchange="changerModeVente()">
+      <option value="piece">À la pièce (ex: 1 pain, 1 tarte)</option>
+      <option value="poids">Au poids (ex: pain vendu au kilo)</option>
+    </select>
+
+    <div id="zone-mode-piece">
+      <label style="margin-top:14px;">Cette recette fait combien de pains (ou pièces) ?</label>
+      <div class="row">
+        <div>
+          <input id="nombre-unites-fiche" type="number" step="1" min="1" value="1" oninput="recalculerFiche()">
+        </div>
+        <div>
+          <input id="poids-unite-fiche" type="number" step="1" min="0" placeholder="Poids d'1 pièce (g), optionnel">
+        </div>
       </div>
-      <div>
-        <input id="poids-unite-fiche" type="number" step="1" min="0" placeholder="Poids d'1 pièce (g), optionnel">
-      </div>
+    </div>
+
+    <div id="zone-mode-poids" style="display:none;">
+      <label style="margin-top:14px;">Poids total obtenu après cuisson (kg)</label>
+      <input id="poids-total-fiche" type="number" step="0.01" min="0.01" placeholder="ex: 3.2" oninput="recalculerFiche()">
     </div>
 
     <label style="margin-top:14px;">Marge souhaitée (%)</label>
@@ -204,6 +217,13 @@ function remplirSelectsIngredients() {
   });
 }
 
+function changerModeVente() {
+  const mode = document.getElementById('mode-vente-fiche').value;
+  document.getElementById('zone-mode-piece').style.display = mode === 'piece' ? 'block' : 'none';
+  document.getElementById('zone-mode-poids').style.display = mode === 'poids' ? 'block' : 'none';
+  recalculerFiche();
+}
+
 function recalculerFiche() {
   const lignes = Array.from(document.querySelectorAll('#lignes-ingredients-fiche .ligne-ingredient'));
   let coutTotal = 0;
@@ -221,32 +241,45 @@ function recalculerFiche() {
   });
 
   const marge = parseFloat(document.getElementById('marge-fiche').value) || 0;
-  const nombreUnites = parseFloat(document.getElementById('nombre-unites-fiche').value) || 1;
-  const poidsUnite = parseFloat(document.getElementById('poids-unite-fiche').value) || null;
+  const modeVente = document.getElementById('mode-vente-fiche').value;
 
-  const coutParUnite = coutTotal / nombreUnites;
+  let diviseur, poidsUnite;
+  if (modeVente === 'poids') {
+    diviseur = parseFloat(document.getElementById('poids-total-fiche').value) || 1;
+    poidsUnite = null;
+  } else {
+    diviseur = parseFloat(document.getElementById('nombre-unites-fiche').value) || 1;
+    poidsUnite = parseFloat(document.getElementById('poids-unite-fiche').value) || null;
+  }
+
+  const coutParUnite = coutTotal / diviseur;
   const prixVenteUnite = marge < 100 ? coutParUnite / (1 - marge / 100) : coutParUnite;
   const margeEurosUnite = prixVenteUnite - coutParUnite;
+  const libelleUnite = modeVente === 'poids' ? 'kg' : 'pain';
 
   const zone = document.getElementById('resultat-fiche');
+  const ligneQuantite = modeVente === 'poids'
+    ? `<div class="ligne"><span>Poids total obtenu</span><span>${diviseur} kg</span></div>`
+    : `<div class="ligne"><span>Fait ${diviseur} pain(s)${poidsUnite ? ' de ' + poidsUnite + ' g' : ''}</span><span></span></div>`;
+
   zone.innerHTML = `
     ${detail.map(d => `<div class="ligne"><span>${d.nom} (${d.quantite} ${d.unite})</span><span>${d.cout.toFixed(2)} €</span></div>`).join('')}
     <div class="ligne total"><span>Coût total de la fournée</span><span>${coutTotal.toFixed(2)} €</span></div>
-    <div class="ligne"><span>Fait ${nombreUnites} pain(s)${poidsUnite ? ' de ' + poidsUnite + ' g' : ''}</span><span></span></div>
-    <div class="ligne total" style="border-top:2px solid #e0dace; margin-top:10px; padding-top:12px;"><span>Coût par pain</span><span>${coutParUnite.toFixed(2)} €</span></div>
-    <div class="ligne"><span>Marge par pain (${marge}%)</span><span>${margeEurosUnite.toFixed(2)} €</span></div>
-    <div class="prix-vente">Prix de vente conseillé : ${prixVenteUnite.toFixed(2)} € / pain</div>
+    ${ligneQuantite}
+    <div class="ligne total" style="border-top:2px solid #e0dace; margin-top:10px; padding-top:12px;"><span>Coût par ${libelleUnite}</span><span>${coutParUnite.toFixed(2)} €</span></div>
+    <div class="ligne"><span>Marge par ${libelleUnite} (${marge}%)</span><span>${margeEurosUnite.toFixed(2)} €</span></div>
+    <div class="prix-vente">Prix de vente conseillé : ${prixVenteUnite.toFixed(2)} € / ${libelleUnite}</div>
   `;
 
-  return { coutTotal, coutParUnite, prixVenteUnite, nombreUnites, poidsUnite, detail, marge };
+  return { coutTotal, coutParUnite, prixVenteUnite, diviseur, poidsUnite, modeVente, detail, marge };
 }
 
 async function enregistrerFiche() {
   const nom_produit = document.getElementById('nom-fiche').value.trim();
   const atelier = document.getElementById('atelier-fiche').value;
   const marge_pourcentage = parseFloat(document.getElementById('marge-fiche').value) || 0;
-  const nombre_unites = parseFloat(document.getElementById('nombre-unites-fiche').value) || 1;
-  const poids_unite_g = parseFloat(document.getElementById('poids-unite-fiche').value) || null;
+  const mode_vente = document.getElementById('mode-vente-fiche').value;
+  const poids_unite_g = mode_vente === 'piece' ? (parseFloat(document.getElementById('poids-unite-fiche').value) || null) : null;
   const cree_par = window.profilActuel ? window.profilActuel.nom : null;
 
   if (!nom_produit) { alert('Merci de donner un nom au produit.'); return; }
@@ -254,21 +287,25 @@ async function enregistrerFiche() {
   const resultat = recalculerFiche();
   if (resultat.detail.length === 0) { alert('Ajoute au moins un ingrédient.'); return; }
 
+  const nombre_unites = resultat.diviseur;
+
   const { error } = await supabaseClient.from('fiches_cout').insert([{
-    nom_produit, atelier, marge_pourcentage, nombre_unites, poids_unite_g,
+    nom_produit, atelier, marge_pourcentage, mode_vente, nombre_unites, poids_unite_g,
     lignes: resultat.detail,
     cree_par
   }]);
 
   if (error) { alert('Erreur : ' + error.message); return; }
 
-  alert('Fiche enregistrée — coût par pain ' + resultat.coutParUnite.toFixed(2) + ' €, prix conseillé ' + resultat.prixVenteUnite.toFixed(2) + ' € / pain.');
+  const libelle = mode_vente === 'poids' ? 'kg' : 'pain';
+  alert('Fiche enregistrée — coût par ' + libelle + ' ' + resultat.coutParUnite.toFixed(2) + ' €, prix conseillé ' + resultat.prixVenteUnite.toFixed(2) + ' € / ' + libelle + '.');
 
   document.getElementById('nom-fiche').value = '';
   document.getElementById('lignes-ingredients-fiche').innerHTML = '';
   document.getElementById('marge-fiche').value = 70;
   document.getElementById('nombre-unites-fiche').value = 1;
   document.getElementById('poids-unite-fiche').value = '';
+  document.getElementById('poids-total-fiche').value = '';
   recalculerFiche();
   chargerFiches();
 }
@@ -282,13 +319,15 @@ async function chargerFiches() {
 
   conteneur.innerHTML = data.map(f => {
     const coutTotal = (f.lignes || []).reduce((s, l) => s + l.cout, 0);
-    const nombreUnites = f.nombre_unites || 1;
-    const coutParUnite = coutTotal / nombreUnites;
+    const diviseur = f.nombre_unites || 1;
+    const coutParUnite = coutTotal / diviseur;
     const prixVenteUnite = f.marge_pourcentage < 100 ? coutParUnite / (1 - f.marge_pourcentage / 100) : coutParUnite;
+    const libelle = f.mode_vente === 'poids' ? 'kg' : 'pain';
+    const descQuantite = f.mode_vente === 'poids' ? diviseur + ' kg obtenus' : diviseur + ' pain(s)';
     return `
       <button class="fiche-tuile" onclick='chargerFicheExistante(${JSON.stringify(f)})'>
         <strong>${f.nom_produit}</strong>
-        <small>${nombreUnites} pain(s) · Coût/pain ${coutParUnite.toFixed(2)} € · Marge ${f.marge_pourcentage}% · Vente conseillée ${prixVenteUnite.toFixed(2)} € / pain</small>
+        <small>${descQuantite} · Coût/${libelle} ${coutParUnite.toFixed(2)} € · Marge ${f.marge_pourcentage}% · Vente conseillée ${prixVenteUnite.toFixed(2)} € / ${libelle}</small>
       </button>
     `;
   }).join('');
@@ -298,8 +337,16 @@ function chargerFicheExistante(fiche) {
   document.getElementById('nom-fiche').value = fiche.nom_produit;
   document.getElementById('atelier-fiche').value = fiche.atelier || 'patisserie';
   document.getElementById('marge-fiche').value = fiche.marge_pourcentage;
-  document.getElementById('nombre-unites-fiche').value = fiche.nombre_unites || 1;
-  document.getElementById('poids-unite-fiche').value = fiche.poids_unite_g || '';
+  document.getElementById('mode-vente-fiche').value = fiche.mode_vente || 'piece';
+  changerModeVente();
+
+  if (fiche.mode_vente === 'poids') {
+    document.getElementById('poids-total-fiche').value = fiche.nombre_unites || '';
+  } else {
+    document.getElementById('nombre-unites-fiche').value = fiche.nombre_unites || 1;
+    document.getElementById('poids-unite-fiche').value = fiche.poids_unite_g || '';
+  }
+
   document.getElementById('lignes-ingredients-fiche').innerHTML = '';
 
   (fiche.lignes || []).forEach(l => {
