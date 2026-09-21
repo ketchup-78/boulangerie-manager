@@ -97,7 +97,7 @@
 </div>
 
 <script src="supabase-config.js?v=6"></script>
-<script src="profil.js?v=7"></script>
+<script src="profil.js?v=8"></script>
 <script>
 
 const params = new URLSearchParams(window.location.search);
@@ -204,6 +204,13 @@ async function ouvrirEtiquette(produit) {
     dlc: dateLocale(dlc),
     allergenes: produit.allergenes,
     fait_par: auteur,
+    atelier
+  }]);
+
+  await supabaseClient.from('dlc').insert([{
+    produit: produit.nom,
+    date_fabrication: dateLocale(aujourdhui),
+    dlc: dateLocale(dlc),
     atelier
   }]);
 }

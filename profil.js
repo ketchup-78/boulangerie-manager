@@ -113,11 +113,53 @@ async function initProfil(callback, filtreService) {
     bouton.onclick = () => {
       const id = bouton.dataset.id;
       const employe = data.find(e => e.id === id);
-      localStorage.setItem('bm_profil', JSON.stringify(employe));
-      overlay.remove();
-      afficherBandeauProfil(employe);
-      demarrerSurveillanceInactivite();
-      callback(employe);
+
+      if (employe.role === 'chef' && employe.code_pin) {
+        demanderCodePin(employe, () => validerSelectionProfil(employe, overlay, callback));
+      } else {
+        validerSelectionProfil(employe, overlay, callback);
+      }
     };
   });
+}
+
+function validerSelectionProfil(employe, overlay, callback) {
+  localStorage.setItem('bm_profil', JSON.stringify(employe));
+  overlay.remove();
+  afficherBandeauProfil(employe);
+  demarrerSurveillanceInactivite();
+  callback(employe);
+}
+
+function demanderCodePin(employe, siValide) {
+  const overlayPin = document.createElement('div');
+  overlayPin.id = 'overlay-pin';
+  overlayPin.style.cssText = 'position:fixed;inset:0;background:rgba(36,26,20,.7);display:flex;align-items:center;justify-content:center;z-index:10001;padding:20px;';
+  overlayPin.innerHTML = `
+    <div style="background:#fff;border-radius:18px;padding:28px;max-width:320px;width:100%;text-align:center;">
+      <h2 style="font-family:'Fraunces',serif;margin-top:0;">Code de ${employe.nom}</h2>
+      <input id="saisie-pin" type="password" inputmode="numeric" maxlength="6" style="width:100%;padding:14px;border-radius:10px;border:1px solid #ddd;font-size:22px;text-align:center;letter-spacing:6px;" autofocus>
+      <p id="erreur-pin" style="color:#B00020;font-size:13px;height:16px;margin:8px 0 0;"></p>
+      <button id="btn-valider-pin" style="width:100%;border:none;background:#C68A2E;color:#241A14;padding:14px;border-radius:12px;font-size:16px;font-weight:600;margin-top:10px;">Valider</button>
+      <button id="btn-annuler-pin" style="width:100%;border:none;background:none;color:#999;padding:10px;margin-top:4px;">Annuler</button>
+    </div>`;
+  document.body.appendChild(overlayPin);
+
+  const champ = document.getElementById('saisie-pin');
+  champ.focus();
+
+  function tenterValidation() {
+    if (champ.value === employe.code_pin) {
+      overlayPin.remove();
+      siValide();
+    } else {
+      document.getElementById('erreur-pin').textContent = 'Code incorrect';
+      champ.value = '';
+      champ.focus();
+    }
+  }
+
+  document.getElementById('btn-valider-pin').onclick = tenterValidation;
+  document.getElementById('btn-annuler-pin').onclick = () => overlayPin.remove();
+  champ.addEventListener('keydown', (e) => { if (e.key === 'Enter') tenterValidation(); });
 }
