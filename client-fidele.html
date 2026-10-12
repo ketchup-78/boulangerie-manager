@@ -114,10 +114,13 @@ async function chargerClientsReguliers() {
         <button onclick="ajouterLigneLibre('${client.id}')" style="border:none; background:none; color:var(--accent-dark); font-size:13px; text-decoration:underline; cursor:pointer; padding:0; margin-bottom:6px;">+ Ajouter une ligne</button>
         <button class="primary" onclick='enregistrerCommandeLibre(${JSON.stringify(client.id)}, ${JSON.stringify(client.nom)}, ${JSON.stringify(client.atelier)})'>Enregistrer la commande</button>
         <button class="lien-historique" onclick="basculerHistorique('${client.id}', '${client.nom.replace(/'/g, "\\'")}')">📊 Voir l'historique</button>
-        <button class="lien-historique" onclick="telechargerTotalMois('${client.nom.replace(/'/g, "\\'")}')">⬇️ Télécharger le total du mois</button>
+        <label style="display:block; font-size:13px; opacity:.7; margin:10px 0 4px;">Mois de la facture (choisis un mois précédent si besoin)</label>
+        <input type="month" id="mois-client-${client.id}" style="width:100%; padding:12px; border-radius:10px; border:1px solid #ddd; font-size:15px; margin-bottom:6px;">
+        <button class="lien-historique" onclick="telechargerTotalMois('${client.nom.replace(/'/g, "\\'")}', '${client.id}')">⬇️ Télécharger le total du mois</button>
         <div id="historique-${client.id}" style="display:none; margin-top:14px;"></div>
       `;
       conteneur.appendChild(carte);
+      document.getElementById('mois-client-' + client.id).value = dateLocale().slice(0, 7);
       continue;
     }
 
@@ -141,20 +144,26 @@ async function chargerClientsReguliers() {
       <button onclick="ajouterAutreProduit('${client.id}')" style="border:none; background:none; color:var(--accent-dark); font-size:13px; text-decoration:underline; cursor:pointer; padding:0; margin-bottom:6px;">+ Autre produit</button>
       <button class="primary" onclick='enregistrerCommandeDuMatin(${JSON.stringify(client.id)}, ${JSON.stringify(client.nom)}, ${JSON.stringify(client.atelier)})'>Enregistrer la commande</button>
       <button class="lien-historique" onclick="basculerHistorique('${client.id}', '${client.nom.replace(/'/g, "\\'")}')">📊 Voir l'historique</button>
-      <button class="lien-historique" onclick="telechargerTotalMois('${client.nom.replace(/'/g, "\\'")}')">⬇️ Télécharger le total du mois</button>
+      <label style="display:block; font-size:13px; opacity:.7; margin:10px 0 4px;">Mois de la facture (choisis un mois précédent si besoin)</label>
+        <input type="month" id="mois-client-${client.id}" style="width:100%; padding:12px; border-radius:10px; border:1px solid #ddd; font-size:15px; margin-bottom:6px;">
+        <button class="lien-historique" onclick="telechargerTotalMois('${client.nom.replace(/'/g, "\\'")}', '${client.id}')">⬇️ Télécharger le total du mois</button>
       <button class="lien-historique" onclick="basculerCommandesDuJour('${client.id}', '${client.nom.replace(/'/g, "\\'")}')">📋 Voir les commandes déjà enregistrées aujourd'hui</button>
       <div id="commandes-jour-${client.id}" style="display:none; margin-top:10px;"></div>
       <div id="historique-${client.id}" style="display:none; margin-top:14px;"></div>
     `;
     conteneur.appendChild(carte);
     document.getElementById('date-commande-' + client.id).value = dateLocale();
+    document.getElementById('mois-client-' + client.id).value = dateLocale().slice(0, 7);
   }
 }
 
-async function telechargerTotalMois(nomClient) {
-  const maintenant = new Date();
-  const premierJour = dateLocale(new Date(maintenant.getFullYear(), maintenant.getMonth(), 1));
-  const dernierJour = dateLocale(new Date(maintenant.getFullYear(), maintenant.getMonth() + 1, 0));
+async function telechargerTotalMois(nomClient, clientId) {
+  const champMois = clientId ? document.getElementById('mois-client-' + clientId) : null;
+  const moisChoisi = (champMois && champMois.value) ? champMois.value : dateLocale().slice(0, 7);
+  const [an, mo] = moisChoisi.split('-').map(Number);
+  const maintenant = new Date(an, mo - 1, 1);
+  const premierJour = dateLocale(new Date(an, mo - 1, 1));
+  const dernierJour = dateLocale(new Date(an, mo, 0));
 
   const { data: commandes, error } = await supabaseClient
     .from('commandes')
@@ -166,7 +175,7 @@ async function telechargerTotalMois(nomClient) {
     .order('date_retrait', { ascending: true });
 
   if (error) { alert('Erreur : ' + error.message); return; }
-  if (!commandes || commandes.length === 0) { alert('Aucune commande ce mois-ci pour ' + nomClient + '.'); return; }
+  if (!commandes || commandes.length === 0) { alert('Aucune commande prête sur ce mois pour ' + nomClient + '.'); return; }
 
   const totaux = {};
   commandes.forEach(c => { totaux[c.produit] = (totaux[c.produit] || 0) + c.quantite; });
@@ -181,7 +190,7 @@ async function telechargerTotalMois(nomClient) {
   const url = URL.createObjectURL(blob);
   const lien = document.createElement('a');
   lien.href = url;
-  lien.download = 'total_mois_' + nomClient.replace(/\s+/g, '_') + '_' + dateLocale().slice(0,7) + '.csv';
+  lien.download = 'total_mois_' + nomClient.replace(/\s+/g, '_') + '_' + moisChoisi + '.csv';
   document.body.appendChild(lien);
   lien.click();
   document.body.removeChild(lien);
