@@ -19,6 +19,7 @@
   .ligne span{flex:1;font-weight:600;}
   .ligne input{width:120px;padding:16px;font-size:24px;text-align:center;border-radius:12px;border:1px solid #ddd;}
   button.primary{width:100%;border:none;background:var(--accent);color:var(--ink);padding:18px;border-radius:14px;font-size:20px;font-weight:600;}
+  .pieces{margin:-8px 0 18px;text-align:right;font-size:18px;opacity:.7;}
   #ok{text-align:center;color:#2E7D32;font-weight:600;height:24px;margin-top:12px;}
 </style>
 </head>
@@ -27,9 +28,12 @@
 <main>
   <div class="card">
     <p class="date" id="date-jour"></p>
-    <div class="ligne"><span>Tradition</span><input type="number" inputmode="numeric" min="0" id="prod-Tradition" placeholder="0"></div>
-    <div class="ligne"><span>Graines</span><input type="number" inputmode="numeric" min="0" id="prod-Graines" placeholder="0"></div>
-    <div class="ligne"><span>Héritage</span><input type="number" inputmode="numeric" min="0" id="prod-Héritage" placeholder="0"></div>
+    <div class="ligne"><span>Tradition <small style="font-weight:400;opacity:.6;">(bacs)</small></span><input type="number" inputmode="numeric" min="0" id="prod-Tradition" placeholder="0" oninput="majPieces()"></div>
+    <div id="pieces-Tradition" class="pieces"></div>
+    <div class="ligne"><span>Graines <small style="font-weight:400;opacity:.6;">(bacs)</small></span><input type="number" inputmode="numeric" min="0" id="prod-Graines" placeholder="0" oninput="majPieces()"></div>
+    <div id="pieces-Graines" class="pieces"></div>
+    <div class="ligne"><span>Héritage <small style="font-weight:400;opacity:.6;">(bacs)</small></span><input type="number" inputmode="numeric" min="0" id="prod-Héritage" placeholder="0" oninput="majPieces()"></div>
+    <div id="pieces-Héritage" class="pieces"></div>
     <button class="primary" onclick="enregistrer()">Enregistrer</button>
     <div id="ok"></div>
   </div>
@@ -38,13 +42,21 @@
 <script src="profil.js?v=9"></script>
 <script>
 const PRODUITS = ['Tradition', 'Graines', 'Héritage'];
+const PIECES_PAR_BAC = 20;
+
+function majPieces() {
+  PRODUITS.forEach(nom => {
+    const bacs = parseFloat(document.getElementById('prod-' + nom).value) || 0;
+    document.getElementById('pieces-' + nom).textContent = bacs > 0 ? '= ' + (bacs * PIECES_PAR_BAC) + ' pièces' : '';
+  });
+}
 
 async function enregistrer() {
   const date = dateLocale();
   const par = window.profilActuel ? window.profilActuel.nom : null;
   const lignes = PRODUITS.map(nom => ({
     produit: nom, unite: 'pièce',
-    quantite: parseFloat(document.getElementById('prod-' + nom).value) || 0,
+    quantite: (parseFloat(document.getElementById('prod-' + nom).value) || 0) * PIECES_PAR_BAC,
     date_production: date, atelier: 'boulangerie', enregistre_par: par
   }));
   const { error } = await supabaseClient.from('production_jour').upsert(lignes, { onConflict: 'produit,atelier,date_production' });
@@ -60,8 +72,11 @@ initProfil(async (profil) => {
   const { data } = await supabaseClient.from('production_jour').select('*')
     .eq('date_production', date).eq('atelier', 'boulangerie').in('produit', PRODUITS);
   (data || []).forEach(l => {
-    if (parseFloat(l.quantite) > 0) document.getElementById('prod-' + l.produit).value = l.quantite;
+    if (parseFloat(l.quantite) > 0) document.getElementById('prod-' + l.produit).value = Math.round(l.quantite / PIECES_PAR_BAC * 10) / 10;
   });
+  majPieces();
+  (function(){
+  })();
 }, 'boulangerie');
 </script>
 </body>
