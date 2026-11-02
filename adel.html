@@ -35,13 +35,14 @@
 <header><h1>🥖 Production</h1><span id="bandeau-profil"></span></header>
 <main>
   <div class="card">
-    <h2>📋 Commandes de la journée</h2>
+    <h2>📋 Commandes de la journée <small style="font-weight:400;opacity:.6;font-size:14px;">(14h – 20h)</small></h2>
     <div id="commandes-jour"><p class="vide">Chargement...</p></div>
   </div>
   <div class="card">
     <p class="date" id="date-jour"></p>
     <div class="ligne"><span>Tradition <small style="font-weight:400;opacity:.6;">(bacs)</small></span><input type="number" inputmode="numeric" min="0" id="prod-Tradition" placeholder="0" oninput="majPieces()"></div>
     <div id="pieces-Tradition" class="pieces"></div>
+    <div class="ligne"><span>Tradition pas cuite <small style="font-weight:400;opacity:.6;">(pâte fermentée, en pièces)</small></span><input type="number" inputmode="numeric" min="0" id="prod-pas-cuite" placeholder="0" oninput="majPieces()"></div>
     <div class="ligne"><span>Graines <small style="font-weight:400;opacity:.6;">(bacs)</small></span><input type="number" inputmode="numeric" min="0" id="prod-Graines" placeholder="0" oninput="majPieces()"></div>
     <div id="pieces-Graines" class="pieces"></div>
     <div class="ligne"><span>Héritage <small style="font-weight:400;opacity:.6;">(bacs)</small></span><input type="number" inputmode="numeric" min="0" id="prod-Héritage" placeholder="0" oninput="majPieces()"></div>
@@ -54,12 +55,18 @@
 <script src="profil.js?v=9"></script>
 <script>
 const PRODUITS = ['Tradition', 'Graines', 'Héritage'];
+const PAS_CUITE = 'Tradition pas cuite';
 const PIECES_PAR_BAC = 20;
 
 function majPieces() {
   PRODUITS.forEach(nom => {
     const bacs = parseFloat(document.getElementById('prod-' + nom).value) || 0;
-    document.getElementById('pieces-' + nom).textContent = bacs > 0 ? '= ' + (bacs * PIECES_PAR_BAC) + ' pièces' : '';
+    let txt = bacs > 0 ? '= ' + (bacs * PIECES_PAR_BAC) + ' pièces' : '';
+    if (nom === 'Tradition' && bacs > 0) {
+      const pc = parseFloat(document.getElementById('prod-pas-cuite').value) || 0;
+      if (pc > 0) txt += ' − ' + pc + ' pas cuites = ' + (bacs * PIECES_PAR_BAC - pc) + ' cuites';
+    }
+    document.getElementById('pieces-' + nom).textContent = txt;
   });
 }
 
@@ -71,6 +78,7 @@ async function chargerCommandes() {
   const zone = document.getElementById('commandes-jour');
   const { data, error } = await supabaseClient.from('commandes').select('*')
     .eq('date_retrait', dateLocale()).neq('statut', 'annule')
+    .gte('heure_retrait', '14:00').lte('heure_retrait', '20:00')
     .or('atelier.eq.boulangerie,atelier.is.null')
     .order('heure_retrait', { ascending: true });
   if (error) { zone.innerHTML = '<p class="vide">Erreur : ' + echapper(error.message) + '</p>'; return; }
@@ -81,7 +89,7 @@ async function chargerCommandes() {
     (groupes[cle] = groupes[cle] || { client: c.client, heure: c.heure_retrait, lignes: [] }).lignes.push(c);
   });
   const liste = Object.values(groupes);
-  if (liste.length === 0) { zone.innerHTML = '<p class="vide">Aucune commande aujourd\'hui.</p>'; return; }
+  if (liste.length === 0) { zone.innerHTML = '<p class="vide">Aucune commande entre 14h et 20h.</p>'; return; }
   zone.innerHTML = liste.map(g => `
     <div class="cmd">
       <b>${echapper(g.client)}</b><span class="heure">${g.heure ? g.heure.slice(0, 5) : ''}</span>
@@ -92,11 +100,13 @@ async function chargerCommandes() {
 async function enregistrer() {
   const date = dateLocale();
   const par = window.profilActuel ? window.profilActuel.nom : null;
+  const pasCuite = parseFloat(document.getElementById('prod-pas-cuite').value) || 0;
   const lignes = PRODUITS.map(nom => ({
     produit: nom, unite: 'pièce',
-    quantite: (parseFloat(document.getElementById('prod-' + nom).value) || 0) * PIECES_PAR_BAC,
+    quantite: (parseFloat(document.getElementById('prod-' + nom).value) || 0) * PIECES_PAR_BAC - (nom === 'Tradition' ? pasCuite : 0),
     date_production: date, atelier: 'boulangerie', enregistre_par: par
   }));
+  lignes.push({ produit: PAS_CUITE, unite: 'pièce', quantite: pasCuite, date_production: date, atelier: 'boulangerie', enregistre_par: par });
   const { error } = await supabaseClient.from('production_jour').upsert(lignes, { onConflict: 'produit,atelier,date_production' });
   const ok = document.getElementById('ok');
   if (error) { ok.style.color = '#B00020'; ok.textContent = 'Erreur : ' + error.message; return; }
@@ -108,9 +118,14 @@ initProfil(async (profil) => {
   const date = dateLocale();
   document.getElementById('date-jour').textContent = new Date().toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' });
   const { data } = await supabaseClient.from('production_jour').select('*')
-    .eq('date_production', date).eq('atelier', 'boulangerie').in('produit', PRODUITS);
-  (data || []).forEach(l => {
-    if (parseFloat(l.quantite) > 0) document.getElementById('prod-' + l.produit).value = Math.round(l.quantite / PIECES_PAR_BAC * 10) / 10;
+    .eq('date_production', date).eq('atelier', 'boulangerie').in('produit', PRODUITS.concat([PAS_CUITE]));
+  const lu = {};
+  (data || []).forEach(l => { lu[l.produit] = parseFloat(l.quantite) || 0; });
+  const pc = lu[PAS_CUITE] || 0;
+  if (pc > 0) document.getElementById('prod-pas-cuite').value = pc;
+  PRODUITS.forEach(nom => {
+    const pieces = (lu[nom] || 0) + (nom === 'Tradition' ? pc : 0);
+    if (pieces > 0) document.getElementById('prod-' + nom).value = Math.round(pieces / PIECES_PAR_BAC * 10) / 10;
   });
   majPieces();
   chargerCommandes();
