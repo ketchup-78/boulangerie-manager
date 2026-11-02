@@ -32,7 +32,7 @@
 </style>
 </head>
 <body>
-<header><h1>🥖 Production</h1><span id="bandeau-profil"></span></header>
+<header><h1>🥖 Production</h1><div style="text-align:right;"><span id="bandeau-profil"></span><br><a href="#" onclick="effacerProfil();return false;" style="color:#fff;opacity:.8;font-size:13px;">🔄 Changer de profil</a></div></header>
 <main>
   <div class="card">
     <h2>📋 Commandes de la journée <small style="font-weight:400;opacity:.6;font-size:14px;">(14h – 20h)</small></h2>
@@ -115,6 +115,7 @@ async function enregistrer() {
 
 initProfil(async (profil) => {
   window.profilActuel = profil;
+  if (profil.nom.trim().toLowerCase() !== 'adel' && profil.role !== 'chef') { location.href = 'index.html'; return; }
   const date = dateLocale();
   document.getElementById('date-jour').textContent = new Date().toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' });
   const { data } = await supabaseClient.from('production_jour').select('*')
@@ -132,7 +133,7 @@ initProfil(async (profil) => {
   supabaseClient.channel('commandes-adel')
     .on('postgres_changes', { event: '*', schema: 'public', table: 'commandes' }, chargerCommandes)
     .subscribe();
-}, 'boulangerie');
+});
 </script>
 </body>
 </html>
