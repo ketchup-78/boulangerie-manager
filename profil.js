@@ -57,6 +57,15 @@ function afficherBandeauProfil(employe) {
 // Le filtreService limite la liste affichée aux personnes de ce service,
 // chef compris (un chef n'apparaît que sur la tablette de son propre service).
 async function initProfil(callback, filtreService) {
+  // Profil simplifié : Adel arrive directement sur sa page (adel.html)
+  const callbackPage = callback;
+  callback = (p) => {
+    if (p && p.nom && p.nom.trim().toLowerCase() === 'adel' && !location.pathname.endsWith('adel.html')) {
+      location.href = 'adel.html';
+      return;
+    }
+    callbackPage(p);
+  };
   const existant = getProfil();
   if (existant) {
     afficherBandeauProfil(existant);

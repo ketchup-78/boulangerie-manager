@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Production — Adel</title>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:wght@600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+  :root{--bg:#FAF7F2;--ink:#241A14;--accent:#C68A2E;}
+  *{box-sizing:border-box;}
+  body{font-family:'Inter',Arial,sans-serif;margin:0;background:var(--bg);color:var(--ink);}
+  header{background:var(--ink);color:#fff;padding:22px 20px;display:flex;justify-content:space-between;align-items:center;}
+  header h1{margin:0;font-family:'Fraunces',serif;font-size:22px;}
+  main{padding:20px;max-width:500px;margin:auto;}
+  .card{background:#fff;border-radius:18px;padding:24px;box-shadow:0 2px 8px rgba(0,0,0,.06);}
+  .date{opacity:.6;margin:0 0 20px;}
+  .ligne{display:flex;align-items:center;gap:12px;margin-bottom:18px;font-size:20px;}
+  .ligne span{flex:1;font-weight:600;}
+  .ligne input{width:120px;padding:16px;font-size:24px;text-align:center;border-radius:12px;border:1px solid #ddd;}
+  button.primary{width:100%;border:none;background:var(--accent);color:var(--ink);padding:18px;border-radius:14px;font-size:20px;font-weight:600;}
+  #ok{text-align:center;color:#2E7D32;font-weight:600;height:24px;margin-top:12px;}
+</style>
+</head>
+<body>
+<header><h1>🥖 Production</h1><span id="bandeau-profil"></span></header>
+<main>
+  <div class="card">
+    <p class="date" id="date-jour"></p>
+    <div class="ligne"><span>Tradition</span><input type="number" inputmode="numeric" min="0" id="prod-Tradition" placeholder="0"></div>
+    <div class="ligne"><span>Graines</span><input type="number" inputmode="numeric" min="0" id="prod-Graines" placeholder="0"></div>
+    <div class="ligne"><span>Héritage</span><input type="number" inputmode="numeric" min="0" id="prod-Héritage" placeholder="0"></div>
+    <button class="primary" onclick="enregistrer()">Enregistrer</button>
+    <div id="ok"></div>
+  </div>
+</main>
+<script src="supabase-config.js?v=6"></script>
+<script src="profil.js?v=9"></script>
+<script>
+const PRODUITS = ['Tradition', 'Graines', 'Héritage'];
+
+async function enregistrer() {
+  const date = dateLocale();
+  const par = window.profilActuel ? window.profilActuel.nom : null;
+  const lignes = PRODUITS.map(nom => ({
+    produit: nom, unite: 'pièce',
+    quantite: parseFloat(document.getElementById('prod-' + nom).value) || 0,
+    date_production: date, atelier: 'boulangerie', enregistre_par: par
+  }));
+  const { error } = await supabaseClient.from('production_jour').upsert(lignes, { onConflict: 'produit,atelier,date_production' });
+  const ok = document.getElementById('ok');
+  if (error) { ok.style.color = '#B00020'; ok.textContent = 'Erreur : ' + error.message; return; }
+  ok.style.color = '#2E7D32'; ok.textContent = '✅ Enregistré';
+}
+
+initProfil(async (profil) => {
+  window.profilActuel = profil;
+  const date = dateLocale();
+  document.getElementById('date-jour').textContent = new Date().toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' });
+  const { data } = await supabaseClient.from('production_jour').select('*')
+    .eq('date_production', date).eq('atelier', 'boulangerie').in('produit', PRODUITS);
+  (data || []).forEach(l => {
+    if (parseFloat(l.quantite) > 0) document.getElementById('prod-' + l.produit).value = l.quantite;
+  });
+}, 'boulangerie');
+</script>
+</body>
+</html>
