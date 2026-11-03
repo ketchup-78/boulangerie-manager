@@ -35,6 +35,10 @@
 <header><h1>🥖 Production</h1><div style="text-align:right;"><span id="bandeau-profil"></span><br><a href="#" onclick="effacerProfil();return false;" style="color:#fff;opacity:.8;font-size:13px;">🔄 Changer de profil</a></div></header>
 <main>
   <div class="card">
+    <h2>📅 Il y a 7 jours <small id="date-7j" style="font-weight:400;opacity:.6;font-size:14px;"></small></h2>
+    <div id="produit-7j"><p class="vide">Chargement...</p></div>
+  </div>
+  <div class="card">
     <h2>📋 Commandes de la journée <small style="font-weight:400;opacity:.6;font-size:14px;">(14h – 20h)</small></h2>
     <div id="commandes-jour"><p class="vide">Chargement...</p></div>
   </div>
@@ -97,6 +101,25 @@ async function chargerCommandes() {
     </div>`).join('');
 }
 
+async function charger7Jours() {
+  const d = new Date(); d.setDate(d.getDate() - 7);
+  const date = dateLocale(d);
+  document.getElementById('date-7j').textContent = '(' + d.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' }) + ')';
+  const { data, error } = await supabaseClient.from('production_jour').select('*')
+    .eq('date_production', date).eq('atelier', 'boulangerie').in('produit', PRODUITS.concat([PAS_CUITE]));
+  const zone = document.getElementById('produit-7j');
+  if (error) { zone.innerHTML = '<p class="vide">Erreur : ' + echapper(error.message) + '</p>'; return; }
+  const lu = {};
+  (data || []).forEach(l => { lu[l.produit] = parseFloat(l.quantite) || 0; });
+  if (PRODUITS.every(n => !lu[n]) && !lu[PAS_CUITE]) { zone.innerHTML = '<p class="vide">Rien d\'enregistré ce jour-là.</p>'; return; }
+  const pc = lu[PAS_CUITE] || 0;
+  zone.innerHTML = PRODUITS.map(nom => {
+    const total = (lu[nom] || 0) + (nom === 'Tradition' ? pc : 0);
+    const bacs = Math.round(total / PIECES_PAR_BAC * 10) / 10;
+    return `<div class="cmd"><b>${nom}</b> : ${bacs} bacs <span style="opacity:.6;">(${total} pièces${nom === 'Tradition' && pc ? ', dont ' + pc + ' pas cuites' : ''})</span></div>`;
+  }).join('');
+}
+
 async function enregistrer() {
   const date = dateLocale();
   const par = window.profilActuel ? window.profilActuel.nom : null;
@@ -130,6 +153,7 @@ initProfil(async (profil) => {
   });
   majPieces();
   chargerCommandes();
+  charger7Jours();
   supabaseClient.channel('commandes-adel')
     .on('postgres_changes', { event: '*', schema: 'public', table: 'commandes' }, chargerCommandes)
     .subscribe();
