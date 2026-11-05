@@ -61,7 +61,7 @@
 
 <main>
   <div class="card" id="card-pas-cuites" style="display:none;">
-    <h2>🥖 Tradition pas cuites</h2>
+    <h2>🥖 Tradition pas cuites — matin</h2>
     <div id="contenu-pas-cuites"></div>
   </div>
   <div style="display:flex; gap:10px; margin-bottom:16px;">
@@ -376,7 +376,7 @@ async function initCartePasCuites(profil) {
       .eq('produit', PAS_CUITE).eq('atelier', 'boulangerie').eq('date_production', dateLocale());
     const dejaSaisi = data && data[0] ? parseFloat(data[0].quantite) : '';
     zone.innerHTML = `
-      <label>Combien de traditions n'ont pas été cuites aujourd'hui ? (en pièces)</label>
+      <label>Combien de traditions n'ont pas été cuites ce matin ? (en pièces)</label>
       <input id="saisie-pas-cuites" type="number" inputmode="numeric" min="0" placeholder="0" value="${dejaSaisi}">
       <button class="primary" onclick="enregistrerPasCuites()">Enregistrer</button>
       <p id="retour-pas-cuites" style="text-align:center;font-weight:600;color:#2E7D32;margin:8px 0 0;"></p>`;
@@ -392,7 +392,7 @@ async function initCartePasCuites(profil) {
       zone.innerHTML = '<p class="empty">Rien d\'enregistré hier.</p>';
     } else {
       zone.innerHTML = `<p style="font-size:18px;margin:0;">Hier : <b>${(matin || 0) + (apm || 0)}</b> traditions pas cuites</p>
-        <p style="opacity:.6;font-size:14px;margin:4px 0 0;">Mathieu (matin) : ${matin || 0} · Adel (après-midi) : ${apm || 0}</p>`;
+        <p style="opacity:.6;font-size:14px;margin:4px 0 0;">Matin (Mathieu) : ${matin || 0} · Aprem (Adel) : ${apm || 0}</p>`;
     }
   }
 }

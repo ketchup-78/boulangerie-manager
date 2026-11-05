@@ -96,7 +96,7 @@ const PRODUITS_BOULANGERIE = [
 function afficherFormulaireProduction() {
   document.getElementById('liste-produits-production').innerHTML = PRODUITS_BOULANGERIE.map(p => `
     <div class="ligne-produit">
-      <span>${p.nom} <small style="opacity:.5;">(${p.unite})</small></span>
+      <span>${p.nom}${p.nom === 'Tradition' ? ' <b>(matin)</b>' : ''} <small style="opacity:.5;">(${p.unite})</small></span>
       <input type="number" min="0" step="${p.unite === 'kg' ? '0.1' : '1'}" id="prod-${p.nom.replace(/\s+/g, '_')}" placeholder="0">
     </div>
   `).join('');
@@ -305,9 +305,9 @@ async function afficherCuitReel() {
   const pcM = lu['Tradition pas cuite'] || 0, pcA = lu['Tradition pas cuite après-midi'] || 0;
   zone.innerHTML = `
     <div class="ligne-doc"><span>Façonnées le matin (toi)</span><strong>${matin}</strong></div>
-    <div class="ligne-doc"><span>Refaçonnées l'après-midi (Adel)</span><strong>+ ${apm}</strong></div>
-    <div class="ligne-doc"><span>Pas cuites le matin (Mathieu)</span><strong>− ${pcM}</strong></div>
-    <div class="ligne-doc"><span>Pas cuites l'après-midi (Adel)</span><strong>− ${pcA}</strong></div>
+    <div class="ligne-doc"><span>Refaçonnées aprem (Adel)</span><strong>+ ${apm}</strong></div>
+    <div class="ligne-doc"><span>Pas cuites matin (Mathieu)</span><strong>− ${pcM}</strong></div>
+    <div class="ligne-doc"><span>Pas cuites aprem (Adel)</span><strong>− ${pcA}</strong></div>
     <div class="ligne-doc"><span><b>Réellement cuites</b></span><strong>${matin + apm - pcM - pcA}</strong></div>`;
 }
 
