@@ -43,7 +43,8 @@
     <div id="commandes-jour"><p class="vide">Chargement...</p></div>
   </div>
   <div class="card">
-    <p class="date" id="date-jour"></p>
+    <label style="display:block;font-size:14px;opacity:.7;margin-bottom:6px;">Jour</label>
+    <input type="date" id="date-choisie" onchange="chargerJour()" style="width:100%;padding:14px;font-size:18px;border-radius:12px;border:1px solid #ddd;margin-bottom:20px;">
     <div class="ligne"><span>Tradition refaçonnée <b>(aprem)</b> <small style="font-weight:400;opacity:.6;">(bacs)</small></span><input type="number" inputmode="numeric" min="0" id="prod-Tradition" placeholder="0" oninput="majPieces()"></div>
     <div id="pieces-Tradition" class="pieces"></div>
     <div class="ligne"><span>Tradition pas cuite <b>(aprem)</b> <small style="font-weight:400;opacity:.6;">(en pièces)</small></span><input type="number" inputmode="numeric" min="0" id="prod-pas-cuite" placeholder="0" oninput="majPieces()"></div>
@@ -103,8 +104,13 @@ async function chargerCommandes() {
     </div>`).join('');
 }
 
+function jourChoisi() {
+  return document.getElementById('date-choisie').value || dateLocale();
+}
+
 async function charger7Jours() {
-  const d = new Date(); d.setDate(d.getDate() - 7);
+  const [an, mo, jo] = jourChoisi().split('-').map(Number);
+  const d = new Date(an, mo - 1, jo - 7);
   const date = dateLocale(d);
   document.getElementById('date-7j').textContent = '(' + d.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' }) + ')';
   const { data, error } = await supabaseClient.from('production_jour').select('*')
@@ -123,7 +129,7 @@ async function charger7Jours() {
 }
 
 async function enregistrer() {
-  const date = dateLocale();
+  const date = jourChoisi();
   const par = window.profilActuel ? window.profilActuel.nom : null;
   const pasCuite = parseFloat(document.getElementById('prod-pas-cuite').value) || 0;
   const lignes = PRODUITS.map(nom => ({
@@ -138,11 +144,11 @@ async function enregistrer() {
   ok.style.color = '#2E7D32'; ok.textContent = '✅ Enregistré';
 }
 
-initProfil(async (profil) => {
-  window.profilActuel = profil;
-  if (profil.nom.trim().toLowerCase() !== 'adel' && profil.role !== 'chef') { location.href = 'index.html'; return; }
-  const date = dateLocale();
-  document.getElementById('date-jour').textContent = new Date().toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' });
+async function chargerJour() {
+  const date = jourChoisi();
+  PRODUITS.forEach(n => { document.getElementById('prod-' + n).value = ''; });
+  document.getElementById('prod-pas-cuite').value = '';
+  document.getElementById('ok').textContent = '';
   const { data } = await supabaseClient.from('production_jour').select('*')
     .eq('date_production', date).eq('atelier', 'boulangerie').in('produit', TOUTES_CLES);
   const lu = {};
@@ -154,8 +160,15 @@ initProfil(async (profil) => {
     if (pieces > 0) document.getElementById('prod-' + nom).value = Math.round(pieces / PIECES_PAR_BAC * 10) / 10;
   });
   majPieces();
-  chargerCommandes();
   charger7Jours();
+}
+
+initProfil(async (profil) => {
+  window.profilActuel = profil;
+  if (profil.nom.trim().toLowerCase() !== 'adel' && profil.role !== 'chef') { location.href = 'index.html'; return; }
+  document.getElementById('date-choisie').value = dateLocale();
+  chargerJour();
+  chargerCommandes();
   supabaseClient.channel('commandes-adel')
     .on('postgres_changes', { event: '*', schema: 'public', table: 'commandes' }, chargerCommandes)
     .subscribe();
