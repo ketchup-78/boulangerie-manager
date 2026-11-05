@@ -60,6 +60,10 @@
 </header>
 
 <main>
+  <div class="card" id="card-pas-cuites" style="display:none;">
+    <h2>🥖 Tradition pas cuites</h2>
+    <div id="contenu-pas-cuites"></div>
+  </div>
   <div style="display:flex; gap:10px; margin-bottom:16px;">
     <a href="#" id="lien-recettes" class="raccourci">
       <span style="font-size:24px;">📖</span>
@@ -136,7 +140,7 @@
 </main>
 
 <script src="supabase-config.js?v=6"></script>
-<script src="profil.js?v=8"></script>
+<script src="profil.js?v=9"></script>
 <script>
 
 const params = new URLSearchParams(window.location.search);
@@ -357,6 +361,53 @@ async function marquerPretMultiple(ids, bouton) {
   if (error) alert('Erreur : ' + error.message);
 }
 
+// ---------- Tradition pas cuites ----------
+const PAS_CUITE = 'Tradition pas cuite';
+
+async function initCartePasCuites(profil) {
+  if (atelier !== 'boulangerie') return;
+  const nom = (profil.nom || '').trim().toLowerCase();
+  const carte = document.getElementById('card-pas-cuites');
+  const zone = document.getElementById('contenu-pas-cuites');
+
+  if (nom === 'mathieu') {
+    carte.style.display = 'block';
+    const { data } = await supabaseClient.from('production_jour').select('quantite')
+      .eq('produit', PAS_CUITE).eq('atelier', 'boulangerie').eq('date_production', dateLocale());
+    const dejaSaisi = data && data[0] ? parseFloat(data[0].quantite) : '';
+    zone.innerHTML = `
+      <label>Combien de traditions n'ont pas été cuites aujourd'hui ? (en pièces)</label>
+      <input id="saisie-pas-cuites" type="number" inputmode="numeric" min="0" placeholder="0" value="${dejaSaisi}">
+      <button class="primary" onclick="enregistrerPasCuites()">Enregistrer</button>
+      <p id="retour-pas-cuites" style="text-align:center;font-weight:600;color:#2E7D32;margin:8px 0 0;"></p>`;
+  } else if (profil.role === 'chef') {
+    carte.style.display = 'block';
+    const hier = new Date(); hier.setDate(hier.getDate() - 1);
+    const { data } = await supabaseClient.from('production_jour').select('produit, quantite')
+      .in('produit', [PAS_CUITE, 'Tradition pas cuite après-midi']).eq('atelier', 'boulangerie').eq('date_production', dateLocale(hier));
+    const lu = {};
+    (data || []).forEach(l => { lu[l.produit] = parseFloat(l.quantite) || 0; });
+    const matin = lu[PAS_CUITE], apm = lu['Tradition pas cuite après-midi'];
+    if (matin === undefined && apm === undefined) {
+      zone.innerHTML = '<p class="empty">Rien d\'enregistré hier.</p>';
+    } else {
+      zone.innerHTML = `<p style="font-size:18px;margin:0;">Hier : <b>${(matin || 0) + (apm || 0)}</b> traditions pas cuites</p>
+        <p style="opacity:.6;font-size:14px;margin:4px 0 0;">Mathieu (matin) : ${matin || 0} · Adel (après-midi) : ${apm || 0}</p>`;
+    }
+  }
+}
+
+async function enregistrerPasCuites() {
+  const q = parseFloat(document.getElementById('saisie-pas-cuites').value) || 0;
+  const { error } = await supabaseClient.from('production_jour').upsert([{
+    produit: PAS_CUITE, unite: 'pièce', quantite: q, date_production: dateLocale(),
+    atelier: 'boulangerie', enregistre_par: window.profilActuel ? window.profilActuel.nom : null
+  }], { onConflict: 'produit,atelier,date_production' });
+  const r = document.getElementById('retour-pas-cuites');
+  if (error) { r.style.color = '#B00020'; r.textContent = 'Erreur : ' + error.message; return; }
+  r.style.color = '#2E7D32'; r.textContent = '✅ Enregistré';
+}
+
 // ---------- DLC ----------
 async function chargerDlc() {
   const conteneur = document.getElementById('liste-dlc');
@@ -514,6 +565,7 @@ initProfil((profil) => {
   }
 
   chargerTout();
+  initCartePasCuites(profil);
 
   supabaseClient
     .channel('labo-' + atelier)

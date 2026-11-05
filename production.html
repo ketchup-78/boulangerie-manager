@@ -37,6 +37,7 @@
   .document h3{font-family:'Fraunces',serif; margin:0 0 4px;}
   .document .ligne-doc{display:flex; justify-content:space-between; padding:6px 0; border-bottom:1px solid #f0ebe3; font-size:14px;}
   .document .ligne-doc:last-child{border-bottom:none;}
+  #contenu-cuit-reel .ligne-doc{display:flex; justify-content:space-between; padding:6px 0; border-bottom:1px solid #f0ebe3; font-size:16px;}
 </style>
 </head>
 <body>
@@ -51,6 +52,10 @@
 </header>
 
 <main>
+  <div class="card" id="card-cuit-reel" style="display:none;">
+    <h2>🔥 Tradition réellement cuite <small id="date-cuit-reel" style="font-weight:400;opacity:.6;font-size:14px;"></small></h2>
+    <div id="contenu-cuit-reel"></div>
+  </div>
   <div class="card">
     <h2>Quantités</h2>
     <label>Jour</label>
@@ -68,7 +73,7 @@
 </main>
 
 <script src="supabase-config.js?v=6"></script>
-<script src="profil.js?v=8"></script>
+<script src="profil.js?v=9"></script>
 <script>
 
 const PRODUITS_BOULANGERIE = [
@@ -283,8 +288,32 @@ async function telechargerHistoriqueAnnuel() {
 
 window.INACTIVITE_RETOUR_ACCUEIL = true;
 
+async function afficherCuitReel() {
+  const d = new Date(); d.setDate(d.getDate() - 7);
+  const date = dateLocale(d);
+  document.getElementById('card-cuit-reel').style.display = 'block';
+  document.getElementById('date-cuit-reel').textContent = '(il y a 7 jours : ' + d.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' }) + ')';
+  const noms = ['Tradition', 'Tradition après-midi', 'Tradition pas cuite', 'Tradition pas cuite après-midi'];
+  const { data, error } = await supabaseClient.from('production_jour').select('produit, quantite')
+    .eq('atelier', 'boulangerie').eq('date_production', date).in('produit', noms);
+  const zone = document.getElementById('contenu-cuit-reel');
+  if (error) { zone.textContent = 'Erreur : ' + error.message; return; }
+  const lu = {};
+  (data || []).forEach(l => { lu[l.produit] = parseFloat(l.quantite) || 0; });
+  if (lu['Tradition'] === undefined && lu['Tradition après-midi'] === undefined) { zone.innerHTML = '<p style="opacity:.6;margin:0;">Pas de production Tradition enregistrée ce jour-là.</p>'; return; }
+  const matin = lu['Tradition'] || 0, apm = lu['Tradition après-midi'] || 0;
+  const pcM = lu['Tradition pas cuite'] || 0, pcA = lu['Tradition pas cuite après-midi'] || 0;
+  zone.innerHTML = `
+    <div class="ligne-doc"><span>Façonnées le matin (toi)</span><strong>${matin}</strong></div>
+    <div class="ligne-doc"><span>Refaçonnées l'après-midi (Adel)</span><strong>+ ${apm}</strong></div>
+    <div class="ligne-doc"><span>Pas cuites le matin (Mathieu)</span><strong>− ${pcM}</strong></div>
+    <div class="ligne-doc"><span>Pas cuites l'après-midi (Adel)</span><strong>− ${pcA}</strong></div>
+    <div class="ligne-doc"><span><b>Réellement cuites</b></span><strong>${matin + apm - pcM - pcA}</strong></div>`;
+}
+
 initProfil((profil) => {
   window.profilActuel = profil;
+  if (profil.role === 'chef') afficherCuitReel();
   document.getElementById('date-production').value = dateLocale();
   afficherFormulaireProduction();
   changerJourProduction();
