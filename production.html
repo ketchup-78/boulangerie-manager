@@ -303,12 +303,10 @@ async function afficherCuitReel() {
   if (lu['Tradition'] === undefined && lu['Tradition après-midi'] === undefined) { zone.innerHTML = '<p style="opacity:.6;margin:0;">Pas de production Tradition enregistrée ce jour-là.</p>'; return; }
   const matin = lu['Tradition'] || 0, apm = lu['Tradition après-midi'] || 0;
   const pcM = lu['Tradition pas cuite'] || 0, pcA = lu['Tradition pas cuite après-midi'] || 0;
+  const total = matin + apm - pcM - pcA;
   zone.innerHTML = `
-    <div class="ligne-doc"><span>Façonnées le matin (toi)</span><strong>${matin}</strong></div>
-    <div class="ligne-doc"><span>Refaçonnées aprem (Adel)</span><strong>+ ${apm}</strong></div>
-    <div class="ligne-doc"><span>Pas cuites matin (Mathieu)</span><strong>− ${pcM}</strong></div>
-    <div class="ligne-doc"><span>Pas cuites aprem (Adel)</span><strong>− ${pcA}</strong></div>
-    <div class="ligne-doc"><span><b>Réellement cuites</b></span><strong>${matin + apm - pcM - pcA}</strong></div>`;
+    <p style="font-size:42px;font-weight:700;margin:0;font-family:'Fraunces',serif;">${total} <small style="font-size:16px;font-weight:400;opacity:.6;">traditions cuites</small></p>
+    <p style="font-size:12px;opacity:.5;margin:6px 0 0;">${matin} matin + ${apm} aprem − ${pcM + pcA} pas cuites</p>`;
 }
 
 initProfil((profil) => {
