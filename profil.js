@@ -45,6 +45,61 @@ function demarrerSurveillanceInactivite() {
   });
 }
 
+
+// ---------- Notifications téléphone (tâches assignées) ----------
+const CLE_PUBLIQUE_PUSH = "BAlwR77c6otDJCxauGxq_5xTO08qytQ_jG7T875M7pdTUvzxWHhlnYRDAKVfh-bXatKain4J4rJlrxjyiPTYKB8";
+
+(function () {
+  const lien = document.createElement('link');
+  lien.rel = 'manifest'; lien.href = 'manifest.json';
+  document.head.appendChild(lien);
+})();
+
+function cleEnOctets(base64url) {
+  const b64 = (base64url + '='.repeat((4 - base64url.length % 4) % 4)).replace(/-/g, '+').replace(/_/g, '/');
+  const brut = atob(b64);
+  return Uint8Array.from(brut, c => c.charCodeAt(0));
+}
+
+async function enregistrerAbonnementPush(employe) {
+  const reg = await navigator.serviceWorker.register('sw.js');
+  await navigator.serviceWorker.ready;
+  let abo = await reg.pushManager.getSubscription();
+  if (!abo) {
+    abo = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: cleEnOctets(CLE_PUBLIQUE_PUSH) });
+  }
+  const j = abo.toJSON();
+  await supabaseClient.from('abonnements_push').upsert([{
+    employe_nom: employe.nom, service: employe.service || null,
+    endpoint: j.endpoint, p256dh: j.keys.p256dh, auth: j.keys.auth
+  }], { onConflict: 'endpoint' });
+}
+
+function proposerNotifications(employe) {
+  if (!employe || employe.role === 'chef' || employe.service === 'vente') return;
+  if (!('serviceWorker' in navigator) || !('PushManager' in window) || !('Notification' in window)) return;
+  if (Notification.permission === 'denied') return;
+
+  if (Notification.permission === 'granted') {
+    enregistrerAbonnementPush(employe).catch(() => {});
+    return;
+  }
+  if (document.getElementById('bouton-notifs')) return;
+  const b = document.createElement('button');
+  b.id = 'bouton-notifs';
+  b.textContent = '🔔 Activer les notifications';
+  b.style.cssText = 'position:fixed;left:12px;right:12px;bottom:12px;z-index:9000;border:none;background:#C68A2E;color:#241A14;padding:16px;border-radius:14px;font-size:17px;font-weight:600;box-shadow:0 4px 14px rgba(0,0,0,.25);';
+  b.onclick = async () => {
+    const reponse = await Notification.requestPermission();
+    b.remove();
+    if (reponse === 'granted') {
+      try { await enregistrerAbonnementPush(employe); alert('Notifications activées ✅'); }
+      catch (e) { alert('Impossible d\'activer : ' + e.message); }
+    }
+  };
+  document.body.appendChild(b);
+}
+
 function afficherBandeauProfil(employe) {
   const bandeau = document.getElementById('bandeau-profil');
   if (bandeau) {
@@ -69,6 +124,7 @@ async function initProfil(callback, filtreService) {
   const existant = getProfil();
   if (existant) {
     afficherBandeauProfil(existant);
+    proposerNotifications(existant);
     demarrerSurveillanceInactivite();
     callback(existant);
     return;
@@ -136,6 +192,7 @@ function validerSelectionProfil(employe, overlay, callback) {
   localStorage.setItem('bm_profil', JSON.stringify(employe));
   overlay.remove();
   afficherBandeauProfil(employe);
+  proposerNotifications(employe);
   demarrerSurveillanceInactivite();
   callback(employe);
 }
