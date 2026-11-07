@@ -76,6 +76,8 @@ const atelier = params.get('atelier') === 'patisserie' ? 'patisserie' : 'boulang
 document.getElementById('titre-page').textContent =
   atelier === 'patisserie' ? '🧁 Recettes — Pâtisserie' : '🍞 Recettes — Boulangerie';
 
+let estChef = false;
+
 async function chargerRecettes() {
   const { data, error } = await supabaseClient
     .from('recettes')
@@ -101,8 +103,28 @@ async function chargerRecettes() {
       ${r.pdf_url
         ? `<button onclick="voirPdf('${r.pdf_url}')" class="small" style="border:none; background:var(--ink); color:#fff; padding:10px 15px; border-radius:10px; font-size:14px; cursor:pointer; font-family:inherit;">📄 Voir le PDF</button>`
         : `<span style="opacity:.4; font-size:13px;">Aucun PDF</span>`}
+      ${estChef ? `<button onclick="supprimerRecette('${r.id}', ${JSON.stringify(r.nom).replace(/"/g, '&quot;')}, ${JSON.stringify(r.pdf_url || '').replace(/"/g, '&quot;')})" title="Supprimer cette recette" style="border:none; background:#fbe9ec; color:#B00020; padding:10px 12px; border-radius:10px; font-size:16px; cursor:pointer; margin-left:6px;">🗑️</button>` : ''}
     </div>
   `).join('');
+}
+
+async function supprimerRecette(id, nom, pdfUrl) {
+  if (!window.profilActuel || window.profilActuel.role !== 'chef') return;
+  if (!confirm('Supprimer définitivement la recette « ' + nom + ' » ?')) return;
+
+  const { error } = await supabaseClient.from('recettes').delete().eq('id', id);
+  if (error) { alert('Erreur : ' + error.message); return; }
+
+  // On supprime aussi le fichier PDF stocké
+  if (pdfUrl) {
+    const marque = '/Recettes/';
+    const i = pdfUrl.indexOf(marque);
+    if (i !== -1) {
+      const nomFichier = decodeURIComponent(pdfUrl.slice(i + marque.length).split('?')[0]);
+      await supabaseClient.storage.from('Recettes').remove([nomFichier]);
+    }
+  }
+  chargerRecettes();
 }
 
 function voirPdf(url) {
@@ -175,6 +197,7 @@ async function ajouterRecette() {
 // On attend de savoir qui utilise la tablette avant de charger la page
 initProfil((profil) => {
   window.profilActuel = profil;
+  estChef = profil.role === 'chef';
 
   if (profil.role !== 'chef') {
     document.getElementById('card-ajout-recette').style.display = 'none';
