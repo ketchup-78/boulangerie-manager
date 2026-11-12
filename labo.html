@@ -62,6 +62,7 @@
 <main>
   <div class="card" id="card-pas-cuites" style="display:none;">
     <h2>🥖 Tradition pas cuites — matin</h2>
+    <div id="tuiles-tradition" style="display:flex; flex-wrap:wrap; gap:10px; margin-bottom:14px;"></div>
     <div id="contenu-pas-cuites"></div>
   </div>
   <div style="display:flex; gap:10px; margin-bottom:16px;">
@@ -364,11 +365,31 @@ async function marquerPretMultiple(ids, bouton) {
 // ---------- Tradition pas cuites ----------
 const PAS_CUITE = 'Tradition pas cuite';
 
+async function afficherTuilesTradition() {
+  const zone = document.getElementById('tuiles-tradition');
+  if (!zone) return;
+  const il7 = new Date(); il7.setDate(il7.getDate() - 7);
+  const { data } = await supabaseClient.from('production_jour').select('produit, quantite')
+    .in('produit', ['Tradition', 'Tradition après-midi', 'Tradition pas cuite', 'Tradition pas cuite après-midi'])
+    .eq('atelier', 'boulangerie').eq('date_production', dateLocale(il7));
+  const lu = {};
+  (data || []).forEach(l => { lu[l.produit] = parseFloat(l.quantite) || 0; });
+  const faites = (lu['Tradition'] || 0) + (lu['Tradition après-midi'] || 0);
+  const pasCuites = (lu['Tradition pas cuite'] || 0) + (lu['Tradition pas cuite après-midi'] || 0);
+  const tuile = (titre, nombre, fond) => `
+    <div style="flex:1; background:${fond}; border-radius:14px; padding:14px 8px; text-align:center;">
+      <div style="font-size:32px; font-weight:700; font-family:'Fraunces',serif;">${nombre}</div>
+      <div style="font-size:13px; opacity:.7;">${titre}</div>
+    </div>`;
+  zone.innerHTML = `<p style="flex-basis:100%;margin:0 0 6px;font-size:13px;opacity:.6;">Il y a 7 jours (${il7.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' })})</p>` + tuile('Traditions faites', faites, '#f3ece0') + tuile('Tradition pas cuite', pasCuites, '#fbe9ec');
+}
+
 async function initCartePasCuites(profil) {
   if (atelier !== 'boulangerie') return;
   const nom = (profil.nom || '').trim().toLowerCase();
   const carte = document.getElementById('card-pas-cuites');
   const zone = document.getElementById('contenu-pas-cuites');
+  if (nom === 'mathieu' || profil.role === 'chef') afficherTuilesTradition();
 
   if (nom === 'mathieu') {
     carte.style.display = 'block';
@@ -406,6 +427,7 @@ async function enregistrerPasCuites() {
   const r = document.getElementById('retour-pas-cuites');
   if (error) { r.style.color = '#B00020'; r.textContent = 'Erreur : ' + error.message; return; }
   r.style.color = '#2E7D32'; r.textContent = '✅ Enregistré';
+  afficherTuilesTradition();
 }
 
 // ---------- DLC ----------
