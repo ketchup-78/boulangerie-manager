@@ -33,6 +33,12 @@
     padding:14px; border-radius:12px; font-size:15px; font-weight:600;
   }
   button.primary:active, button.secondaire:active{transform:scale(0.98);}
+  .onglets{display:flex; gap:8px; overflow-x:auto; padding:4px 0 10px;}
+  .onglet{flex:0 0 auto; border:1px solid #ddd; background:#fff; color:var(--ink); padding:10px 14px; border-radius:20px; font-size:14px; font-weight:600; cursor:pointer;}
+  .onglet.actif{background:var(--ink); color:#fff; border-color:var(--ink);}
+  .jour-histo{padding:8px 0; border-bottom:1px solid #f0ebe3; font-size:14px;}
+  .jour-histo:last-child{border-bottom:none;}
+  .jour-histo b{display:block; margin-bottom:2px;}
   .document{border:1px solid #eee; border-radius:12px; padding:18px; margin-top:16px;}
   .document h3{font-family:'Fraunces',serif; margin:0 0 4px;}
   .document .ligne-doc{display:flex; justify-content:space-between; padding:6px 0; border-bottom:1px solid #f0ebe3; font-size:14px;}
@@ -66,9 +72,11 @@
     <button class="secondaire" onclick="basculerDocument()">📄 Voir le document</button>
     <button class="secondaire" onclick="basculerTotalMois()">📊 Voir le total du mois</button>
     <button class="secondaire" onclick="telechargerProductionMois()">⬇️ Télécharger le mois</button>
+    <button class="secondaire" onclick="basculerHistoriqueAnnee()">📅 Voir l'historique de l'année</button>
     <button class="secondaire" onclick="telechargerHistoriqueAnnuel()">⬇️ Télécharger l'historique (1 an)</button>
     <div class="document" id="document-production" style="display:none;"></div>
     <div class="document" id="total-mois-production" style="display:none;"></div>
+    <div class="document" id="historique-annee" style="display:none;"></div>
   </div>
 </main>
 
@@ -254,19 +262,107 @@ async function telechargerProductionMois() {
   URL.revokeObjectURL(url);
 }
 
-async function telechargerHistoriqueAnnuel() {
+
+// ---------- Historique de l'année à l'écran ----------
+let historiqueAnnee = [];
+let moisHistoriqueChoisi = null;
+
+async function chargerLignesAnnee() {
   const dansUnAn = new Date();
   dansUnAn.setFullYear(dansUnAn.getFullYear() - 1);
   const dateLimite = dateLocale(dansUnAn);
+  let toutes = [];
+  for (let debut = 0; ; debut += 1000) {
+    const { data, error } = await supabaseClient.from('production_jour').select('*')
+      .eq('atelier', 'boulangerie').gte('date_production', dateLimite)
+      .order('date_production', { ascending: true }).range(debut, debut + 999);
+    if (error) return { erreur: error.message };
+    toutes = toutes.concat(data || []);
+    if (!data || data.length < 1000) break;
+  }
+  return { lignes: toutes };
+}
 
-  const { data, error } = await supabaseClient
-    .from('production_jour')
-    .select('*')
-    .eq('atelier', 'boulangerie')
-    .gte('date_production', dateLimite)
-    .order('date_production', { ascending: true });
+function ordreProduits(noms) {
+  const connus = PRODUITS_BOULANGERIE.map(p => p.nom);
+  return noms.slice().sort((a, b) => {
+    const ia = connus.indexOf(a), ib = connus.indexOf(b);
+    return (ia === -1 ? 999 : ia) - (ib === -1 ? 999 : ib) || a.localeCompare(b);
+  });
+}
 
-  if (error) { alert('Erreur : ' + error.message); return; }
+function formaterNombre(n) {
+  return (Math.round(n * 10) / 10).toLocaleString('fr-FR');
+}
+
+async function basculerHistoriqueAnnee() {
+  const zone = document.getElementById('historique-annee');
+  if (zone.style.display === 'block') { zone.style.display = 'none'; return; }
+  zone.style.display = 'block';
+  zone.innerHTML = '<p style="opacity:.6;margin:0;">Chargement...</p>';
+  const r = await chargerLignesAnnee();
+  if (r.erreur) { zone.innerHTML = '<p>Erreur : ' + r.erreur + '</p>'; return; }
+  historiqueAnnee = r.lignes.filter(l => parseFloat(l.quantite) > 0);
+  if (historiqueAnnee.length === 0) { zone.innerHTML = '<p style="margin:0;">Aucune donnée sur les 12 derniers mois.</p>'; return; }
+  const mois = [...new Set(historiqueAnnee.map(l => l.date_production.slice(0, 7)))].sort().reverse();
+  moisHistoriqueChoisi = mois[0];
+  dessinerHistoriqueAnnee();
+}
+
+function choisirMoisHistorique(m) {
+  moisHistoriqueChoisi = m;
+  dessinerHistoriqueAnnee();
+}
+
+function dessinerHistoriqueAnnee() {
+  const zone = document.getElementById('historique-annee');
+  const mois = [...new Set(historiqueAnnee.map(l => l.date_production.slice(0, 7)))].sort().reverse();
+
+  // 1) Total de chaque produit sur 1 an
+  const totalAn = {};
+  historiqueAnnee.forEach(l => { totalAn[l.produit] = (totalAn[l.produit] || 0) + parseFloat(l.quantite); });
+  const lignesAn = ordreProduits(Object.keys(totalAn)).map(n =>
+    `<div class="ligne-doc"><span>${n}</span><strong>${formaterNombre(totalAn[n])}</strong></div>`).join('');
+
+  // 2) Onglets des mois
+  const nomMois = (m) => {
+    const [an, mo] = m.split('-').map(Number);
+    const t = new Date(an, mo - 1, 1).toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' });
+    return t.charAt(0).toUpperCase() + t.slice(1);
+  };
+  const onglets = mois.map(m =>
+    `<button class="onglet ${m === moisHistoriqueChoisi ? 'actif' : ''}" onclick="choisirMoisHistorique('${m}')">${nomMois(m)}</button>`).join('');
+
+  // 3) Total du mois choisi + jours saisis seulement
+  const duMois = historiqueAnnee.filter(l => l.date_production.startsWith(moisHistoriqueChoisi));
+  const totalMois = {};
+  duMois.forEach(l => { totalMois[l.produit] = (totalMois[l.produit] || 0) + parseFloat(l.quantite); });
+  const lignesMois = ordreProduits(Object.keys(totalMois)).map(n =>
+    `<div class="ligne-doc"><span>${n}</span><strong>${formaterNombre(totalMois[n])}</strong></div>`).join('');
+
+  const parJour = {};
+  duMois.forEach(l => { (parJour[l.date_production] = parJour[l.date_production] || {})[l.produit] = parseFloat(l.quantite); });
+  const jours = Object.keys(parJour).sort().reverse().map(d => {
+    const [an, mo, jo] = d.split('-').map(Number);
+    const titre = new Date(an, mo - 1, jo).toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' });
+    const detail = ordreProduits(Object.keys(parJour[d])).map(n => `${n} ${formaterNombre(parJour[d][n])}`).join(' · ');
+    return `<div class="jour-histo"><b>${titre}</b>${detail}</div>`;
+  }).join('');
+
+  zone.innerHTML = `
+    <h3>📊 Total sur 1 an</h3>
+    ${lignesAn}
+    <h3 style="margin-top:22px;">📅 Par mois</h3>
+    <div class="onglets">${onglets}</div>
+    <div style="margin-bottom:14px;">${lignesMois}</div>
+    <h3>🗓️ Jour par jour <small style="font-weight:400;opacity:.6;">(jours saisis seulement)</small></h3>
+    ${jours}`;
+}
+
+async function telechargerHistoriqueAnnuel() {
+  const r = await chargerLignesAnnee();
+  if (r.erreur) { alert('Erreur : ' + r.erreur); return; }
+  const data = r.lignes;
   if (!data || data.length === 0) { alert('Aucune donnée sur les 12 derniers mois.'); return; }
 
   const lignes = [['Date', 'Produit', 'Quantité', 'Unité', 'Enregistré par']];
