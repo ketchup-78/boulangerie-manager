@@ -37,6 +37,8 @@
   #verrou{max-width:380px;margin:60px auto;text-align:center;padding:0 24px;}
 </style>
 <link rel="stylesheet" href="responsive.css?v=1">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="icon" type="image/png" href="icone-192.png">
 </head>
 <body>
 <header>
@@ -61,6 +63,8 @@
     <input type="text" id="nom" placeholder="Ex : Chaussons aux pommes">
     <label>Petit descriptif (facultatif)</label>
     <textarea id="description" placeholder="Ex : Pâte feuilletée pur beurre, compote maison"></textarea>
+    <label>Limite par créneau horaire (facultatif)</label>
+    <input type="text" id="quantite-max" inputmode="numeric" placeholder="Ex : 50 — laisse vide pour aucune limite">
     <label>Photo (facultatif)</label>
     <input type="file" id="photo" accept="image/*">
     <button class="primary" id="btn-enregistrer" onclick="enregistrerProduit()">Ajouter</button>
@@ -115,7 +119,7 @@ async function chargerProduits() {
       <div class="vignette">${p.photo_url ? `<img src="${echapper(p.photo_url)}" alt="">` : '🥖'}</div>
       <div class="infos">
         <div class="nom">${echapper(p.nom)}${p.actif ? '' : ' <small>(masqué)</small>'}</div>
-        <div class="desc">${echapper(p.description || 'Pas de descriptif')}</div>
+        <div class="desc">${echapper(p.description || 'Pas de descriptif')}${p.quantite_max ? ' · <b>Max ' + p.quantite_max + ' par créneau</b>' : ''}</div>
         <div class="actions">
           <button onclick="modifier(${i})">✏️ Modifier</button>
           <button onclick="basculerActif(${i})">${p.actif ? '🙈 Masquer' : '👁️ Afficher'}</button>
@@ -131,6 +135,7 @@ function modifier(i) {
   document.getElementById('titre-form').textContent = 'Modifier « ' + p.nom + ' »';
   document.getElementById('nom').value = p.nom;
   document.getElementById('description').value = p.description || '';
+  document.getElementById('quantite-max').value = p.quantite_max || '';
   document.getElementById('photo').value = '';
   document.getElementById('btn-enregistrer').textContent = 'Enregistrer les modifications';
   document.getElementById('btn-annuler').style.display = 'block';
@@ -142,6 +147,7 @@ function annulerEdition() {
   document.getElementById('titre-form').textContent = 'Ajouter un produit';
   document.getElementById('nom').value = '';
   document.getElementById('description').value = '';
+  document.getElementById('quantite-max').value = '';
   document.getElementById('photo').value = '';
   document.getElementById('btn-enregistrer').textContent = 'Ajouter';
   document.getElementById('btn-annuler').style.display = 'none';
@@ -150,6 +156,9 @@ function annulerEdition() {
 async function enregistrerProduit() {
   const nom = document.getElementById('nom').value.trim();
   const description = document.getElementById('description').value.trim() || null;
+  const brut = document.getElementById('quantite-max').value.trim();
+  const quantite_max = brut ? parseInt(brut, 10) : null;
+  if (brut && (isNaN(quantite_max) || quantite_max <= 0)) { alert('La limite doit être un nombre supérieur à 0.'); return; }
   const fichier = document.getElementById('photo').files[0];
   if (!nom) { alert('Donne un nom au produit.'); return; }
   const bouton = document.getElementById('btn-enregistrer');
@@ -164,11 +173,11 @@ async function enregistrerProduit() {
       photo_url = supabaseClient.storage.from('Catalogue').getPublicUrl(chemin).data.publicUrl;
     }
     if (enEdition) {
-      const { error } = await supabaseClient.from('produits_casino').update({ nom, description, photo_url }).eq('id', enEdition.id);
+      const { error } = await supabaseClient.from('produits_casino').update({ nom, description, photo_url, quantite_max }).eq('id', enEdition.id);
       if (error) throw new Error(error.message);
     } else {
       const ordre = produits.length ? Math.max(...produits.map(p => p.ordre || 0)) + 1 : 1;
-      const { error } = await supabaseClient.from('produits_casino').insert([{ nom, description, photo_url, ordre }]);
+      const { error } = await supabaseClient.from('produits_casino').insert([{ nom, description, photo_url, quantite_max, ordre }]);
       if (error) throw new Error(error.message.includes('duplicate') ? 'Ce produit existe déjà.' : error.message);
     }
     annulerEdition();
