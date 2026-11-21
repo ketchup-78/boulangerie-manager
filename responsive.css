@@ -1,0 +1,27 @@
+/* Adaptation automatique téléphone / tablette — chargé par toutes les pages */
+html{-webkit-text-size-adjust:100%; text-size-adjust:100%;}
+html, body{max-width:100%; overflow-x:hidden;}
+img, video, canvas, iframe{max-width:100%;}
+input, select, textarea, button{max-width:100%;}
+input[type="date"], input[type="time"], input[type="month"]{
+  min-width:0; max-width:100%; -webkit-appearance:none; appearance:none; min-height:46px;
+}
+/* Les lignes de boutons trop larges défilent au lieu d'élargir la page */
+.raccourcis, .barre-raccourcis{overflow-x:auto;}
+
+/* Tablette : on utilise mieux la largeur de l'écran */
+@media (min-width: 768px){
+  main{max-width:900px !important;}
+  header{padding-left:32px; padding-right:32px;}
+  .card{padding:24px;}
+  button.primary, button.secondaire{font-size:17px;}
+}
+/* Grande tablette en mode paysage */
+@media (min-width: 1100px){
+  main{max-width:1000px !important;}
+}
+/* Petits téléphones */
+@media (max-width: 380px){
+  main{padding:14px !important;}
+  header h1{font-size:19px !important;}
+}
