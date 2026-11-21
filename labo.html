@@ -87,6 +87,10 @@
       <span style="font-size:24px;">🏷️</span>
       <span>Étiquettes HACCP</span>
     </a>
+    <a href="casino-admin.html" id="lien-boutique-casino" class="raccourci" style="display:none;">
+      <span style="font-size:24px;">🛍️</span>
+      <span>Boutique Casino</span>
+    </a>
     <a href="client-fidele.html?atelier=boulangerie" id="lien-casino" class="raccourci" style="display:none;">
       <span style="font-size:24px;">📒</span>
       <span>Casino Shop</span>
@@ -168,6 +172,7 @@ document.getElementById('lien-haccp').href = 'haccp.html?atelier=' + atelier;
 if (atelier === 'boulangerie') {
   document.getElementById('lien-production').style.display = 'flex';
   document.getElementById('lien-casino').style.display = 'flex';
+  document.getElementById('lien-boutique-casino').style.display = 'flex';
 }
 
 if (atelier === 'patisserie') {
@@ -472,7 +477,7 @@ async function basculerJourNotif(n) {
 
 // ---------- Demandes Casino à valider (chef) ----------
 async function verifierDemandesCasino(profil) {
-  if (atelier !== 'boulangerie' || profil.role !== 'chef') return;
+  if (atelier !== 'boulangerie' || (profil.role !== 'chef' && (profil.nom || '').trim().toLowerCase() !== 'mathieu')) return;
   const { count, error } = await supabaseClient.from('demandes_casino').select('*', { count: 'exact', head: true }).eq('statut', 'en_attente').gte('date_retrait', dateLocale());
   if (error) return;
   const b = document.getElementById('bandeau-demandes');
