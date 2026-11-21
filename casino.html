@@ -29,7 +29,8 @@
   .qte button{width:44px;height:44px;border-radius:50%;border:none;background:#f1e9da;font-size:24px;font-weight:600;color:var(--ink);}
   .qte button.plus{background:var(--accent);}
   .qte button:active{transform:scale(.92);}
-  .qte .n{font-size:20px;font-weight:700;min-width:30px;text-align:center;}
+  .qte .n{font-size:20px;font-weight:700;width:64px;height:44px;text-align:center;border:1px solid #e3dac8;border-radius:12px;background:#fff;color:var(--ink);font-family:inherit;padding:0;-moz-appearance:textfield;appearance:textfield;}
+  .qte .n::-webkit-outer-spin-button,.qte .n::-webkit-inner-spin-button{-webkit-appearance:none;margin:0;}
   .carte.choisi{outline:3px solid var(--accent);}
   .panier{position:fixed;left:0;right:0;bottom:0;background:var(--surface);box-shadow:0 -4px 18px rgba(0,0,0,.12);padding:14px 16px 18px;z-index:50;}
   .panier .ligne{display:flex;gap:10px;align-items:center;max-width:760px;margin:auto;}
@@ -48,6 +49,8 @@
   .toast{position:fixed;top:16px;left:16px;right:16px;background:var(--success);color:#fff;padding:16px;border-radius:14px;text-align:center;font-weight:600;z-index:100;display:none;}
   .deco{background:none;border:none;color:var(--ink);opacity:.5;font-size:13px;text-decoration:underline;margin:30px auto 0;display:block;}
 </style>
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="icon" type="image/png" href="icone-192.png">
 </head>
 <body>
 <header>
@@ -160,16 +163,27 @@ async function chargerProduits() {
         <div class="desc">${echapper(p.description || '')}</div>
         <div class="qte">
           <button onclick="changerQte(${i}, -1)" aria-label="Moins">−</button>
-          <span class="n" id="n-${i}">0</span>
+          <input class="n" id="n-${i}" type="number" inputmode="numeric" min="0" max="999" value="0" onfocus="this.select()" oninput="saisirQte(${i}, this.value)" onblur="finSaisie(${i})" aria-label="Quantité">
           <button class="plus" onclick="changerQte(${i}, 1)" aria-label="Plus">+</button>
         </div>
       </div>
     </div>`).join('');
 }
 
+function saisirQte(i, valeur) {
+  const n = parseInt(valeur, 10);
+  quantites[i] = isNaN(n) ? 0 : Math.max(0, Math.min(999, n));
+  document.getElementById('carte-' + i).classList.toggle('choisi', quantites[i] > 0);
+  majBouton();
+}
+
+function finSaisie(i) {
+  document.getElementById('n-' + i).value = quantites[i];
+}
+
 function changerQte(i, delta) {
   quantites[i] = Math.max(0, Math.min(999, quantites[i] + delta));
-  document.getElementById('n-' + i).textContent = quantites[i];
+  document.getElementById('n-' + i).value = quantites[i];
   document.getElementById('carte-' + i).classList.toggle('choisi', quantites[i] > 0);
   majBouton();
 }
@@ -194,7 +208,7 @@ async function validerCommande() {
     toast('Erreur : ' + error.message, '#B00020'); majBouton(); return;
   }
   quantites = produits.map(() => 0);
-  produits.forEach((p, i) => { document.getElementById('n-' + i).textContent = 0; document.getElementById('carte-' + i).classList.remove('choisi'); });
+  produits.forEach((p, i) => { document.getElementById('n-' + i).value = 0; document.getElementById('carte-' + i).classList.remove('choisi'); });
   majBouton();
   toast('✅ Commande envoyée, merci !');
   chargerMesCommandes();
