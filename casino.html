@@ -73,6 +73,12 @@
   <div class="grille" id="grille"><p class="vide">Chargement…</p></div>
   <h2>Mes commandes à venir</h2>
   <div id="mes-commandes"><p class="vide">Chargement…</p></div>
+  <h2>Mes factures</h2>
+  <div class="cmd">
+    <label for="mois-facture" style="font-size:13px;opacity:.7;">Choisis un mois</label>
+    <input type="month" id="mois-facture" onchange="chargerFacture()" style="width:100%;padding:12px;border-radius:10px;border:1px solid #ddd;font-size:15px;margin:4px 0 10px;box-sizing:border-box;">
+    <div id="facture"><p class="vide">Chargement…</p></div>
+  </div>
   <button class="deco" onclick="deconnecter()">Se déconnecter</button>
 </main>
 
@@ -152,6 +158,48 @@ async function ouvrirBoutique() {
   document.getElementById('heure-livraison').innerHTML = creneaux.map(h => `<option value="${h}" ${h === '08:00' ? 'selected' : ''}>${h.replace(':', 'h')}</option>`).join('');
   await chargerProduits();
   chargerMesCommandes();
+  const champMois = document.getElementById('mois-facture');
+  if (!champMois.value) champMois.value = dateLocaleCasino().slice(0, 7);
+  chargerFacture();
+}
+
+let derniereFacture = [];
+async function chargerFacture() {
+  const zone = document.getElementById('facture');
+  const mois = document.getElementById('mois-facture').value;
+  if (!mois) { zone.innerHTML = ''; return; }
+  zone.innerHTML = '<p class="vide">Chargement…</p>';
+  const { data, error } = await supabaseClient.rpc('casino_ma_facture', { p_code: code, p_mois: mois });
+  if (error) { zone.innerHTML = '<p class="vide">Impossible de charger la facture.</p>'; return; }
+  derniereFacture = data || [];
+  if (derniereFacture.length === 0) { zone.innerHTML = '<p class="vide">Rien à facturer sur ce mois.</p>'; return; }
+  const totaux = {};
+  const parJour = {};
+  derniereFacture.forEach(l => {
+    totaux[l.produit] = (totaux[l.produit] || 0) + Number(l.quantite);
+    (parJour[l.date_retrait] = parJour[l.date_retrait] || []).push(l);
+  });
+  const totalPieces = Object.values(totaux).reduce((a, b) => a + b, 0);
+  let h = '<b>Total du mois : ' + totalPieces + ' pièce' + (totalPieces > 1 ? 's' : '') + '</b>';
+  h += '<div class="detail">' + Object.keys(totaux).sort().map(p => echapper(p) + ' × ' + totaux[p]).join('<br>') + '</div>';
+  h += '<details style="margin-top:10px;"><summary style="font-weight:600;cursor:pointer;">Détail jour par jour</summary>';
+  Object.keys(parJour).sort().forEach(d => {
+    const jour = new Date(d + 'T12:00:00').toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' });
+    h += '<div class="detail" style="margin-top:8px;"><b style="margin:0;">' + jour + '</b>' + parJour[d].map(l => echapper(l.produit) + ' × ' + Number(l.quantite)).join('<br>') + '</div>';
+  });
+  h += '</details>';
+  h += '<button onclick="telechargerFacture()" style="background:#f3ead9;color:var(--ink);">⬇️ Télécharger</button>';
+  zone.innerHTML = h;
+}
+
+function telechargerFacture() {
+  const mois = document.getElementById('mois-facture').value;
+  const lignes = [['Date', 'Produit', 'Quantité']].concat(derniereFacture.map(l => [l.date_retrait, l.produit, Number(l.quantite)]));
+  const csv = '\ufeff' + lignes.map(r => r.map(c => '"' + String(c).replace(/"/g, '""') + '"').join(';')).join('\n');
+  const lien = document.createElement('a');
+  lien.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' }));
+  lien.download = 'facture_casino_' + mois + '.csv';
+  lien.click();
 }
 
 async function chargerProduits() {
