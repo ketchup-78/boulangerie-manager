@@ -130,6 +130,8 @@ async function initProfil(callback, filtreService) {
     return;
   }
 
+  // Sur la page d'Adel, on propose toujours tous les profils (pour pouvoir en changer librement)
+  if (location.pathname.endsWith('adel.html')) filtreService = undefined;
   const { data: tousLesEmployes, error } = await supabaseClient.from('employes').select('*').order('nom');
 
   const data = (filtreService && tousLesEmployes)
