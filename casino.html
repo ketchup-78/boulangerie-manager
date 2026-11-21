@@ -83,7 +83,7 @@
     <label for="heure-livraison">à</label>
     <select id="heure-livraison" onchange="majBouton()"></select>
   </div>
-  <p id="info-creneau" style="display:none;max-width:760px;margin:8px auto 0;font-size:13px;color:var(--accent-dark);font-weight:600;">Après 8h, ta demande doit être validée par la boulangerie.</p>
+  <p id="info-creneau" style="display:none;max-width:760px;margin:8px auto 0;font-size:13px;color:var(--accent-dark);font-weight:600;">Après 8h, ta demande doit être validée par la boulangerie. Seuls les baguettes, traditions et graines sont disponibles.</p>
   <button class="btn" id="btn-valider" onclick="validerCommande()" disabled>Choisis tes produits</button>
 </div>
 <div class="toast" id="toast"></div>
@@ -164,7 +164,7 @@ async function chargerProduits() {
   if (produits.length === 0) { grille.innerHTML = '<p class="vide">Aucun produit pour le moment.</p>'; return; }
   grille.innerHTML = produits.map((p, i) => `
     <div class="carte" id="carte-${i}">
-      <div class="photo">${p.photo_url ? `<img src="${echapper(p.photo_url)}" alt="${echapper(p.nom)}" loading="lazy">` : '🥖'}</div>
+      <div class="photo">${p.photo_url ? `<img src="${echapper(p.photo_url)}" alt="${echapper(p.nom)}" loading="lazy" style="object-position:${p.photo_x ?? 50}% ${p.photo_y ?? 50}%;">` : '🥖'}</div>
       <div class="corps">
         <div class="titre">${echapper(p.nom)}</div>
         <div class="desc">${echapper(p.description || '')}${p.quantite_max ? `<br><small style="opacity:.8;">Maximum ${p.quantite_max} par créneau</small>` : ''}</div>
@@ -202,7 +202,19 @@ function changerQte(i, delta) {
   majBouton();
 }
 
+function dispoApres8h(p) {
+  return /baguette|tradition|graine/i.test(p.nom);
+}
+
 function majBouton() {
+  const apres8h0 = document.getElementById('heure-livraison').value > '08:00';
+  produits.forEach((p, i) => {
+    const carte = document.getElementById('carte-' + i);
+    if (!carte) return;
+    const cache = apres8h0 && !dispoApres8h(p);
+    if (cache && quantites[i] > 0) { quantites[i] = 0; document.getElementById('n-' + i).value = 0; carte.classList.remove('choisi'); }
+    carte.style.display = cache ? 'none' : '';
+  });
   const total = quantites.reduce((a, b) => a + b, 0);
   const apres8h = document.getElementById('heure-livraison').value > '08:00';
   document.getElementById('info-creneau').style.display = apres8h ? 'block' : 'none';

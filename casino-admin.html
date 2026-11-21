@@ -54,7 +54,7 @@
   <span style="width:52px;"></span>
 </header>
 
-<div id="verrou" style="display:none;"><p>Cette page est réservée au chef.</p></div>
+<div id="verrou" style="display:none;"><p>Cette page est réservée au chef et à Mathieu.</p></div>
 
 <main id="contenu" style="display:none;">
   <div class="card" id="card-demandes" style="display:none;">
@@ -62,14 +62,14 @@
     <div id="liste-demandes"></div>
   </div>
 
-  <div class="card">
+  <div class="card reserve-chef">
     <h2>Adresse à donner à ton client</h2>
     <p style="margin:0 0 6px;font-size:14px;">Il l'ouvre une seule fois et tape son code :</p>
     <input type="text" id="lien-client" readonly onclick="this.select()">
     <p style="font-size:12px;opacity:.6;margin:8px 0 0;">Le code se change avec la commande « code » dans Supabase (voir le fichier casino.sql).</p>
   </div>
 
-  <div class="card">
+  <div class="card reserve-chef">
     <h2 id="titre-form">Ajouter un produit</h2>
     <label>Nom du produit</label>
     <input type="text" id="nom" placeholder="Ex : Chaussons aux pommes">
@@ -79,11 +79,19 @@
     <input type="text" id="quantite-max" inputmode="numeric" placeholder="Ex : 50 — laisse vide pour aucune limite">
     <label>Photo (facultatif)</label>
     <input type="file" id="photo" accept="image/*">
+    <div id="bloc-centrage" style="display:none;margin-top:10px;">
+      <label>Centrer la photo (comme chez le client)</label>
+      <div style="aspect-ratio:4/3;max-width:320px;border-radius:12px;overflow:hidden;background:#efe7d9;"><img id="apercu-photo" alt="" style="width:100%;height:100%;object-fit:cover;"></div>
+      <label>← Gauche / Droite →</label>
+      <input type="range" id="photo-x" min="0" max="100" value="50" oninput="majApercu()" style="width:100%;max-width:320px;">
+      <label>↑ Haut / Bas ↓</label>
+      <input type="range" id="photo-y" min="0" max="100" value="50" oninput="majApercu()" style="width:100%;max-width:320px;">
+    </div>
     <button class="primary" id="btn-enregistrer" onclick="enregistrerProduit()">Ajouter</button>
     <button class="primary" id="btn-annuler" onclick="annulerEdition()" style="display:none;background:#eee;">Annuler la modification</button>
   </div>
 
-  <div class="card">
+  <div class="card reserve-chef">
     <h2>Produits de sa boutique</h2>
     <div id="liste"><p class="empty">Chargement…</p></div>
   </div>
@@ -128,7 +136,7 @@ async function chargerProduits() {
   if (produits.length === 0) { zone.innerHTML = '<p class="empty">Aucun produit pour l\'instant.</p>'; return; }
   zone.innerHTML = produits.map((p, i) => `
     <div class="prod ${p.actif ? '' : 'cache'}">
-      <div class="vignette">${p.photo_url ? `<img src="${echapper(p.photo_url)}" alt="">` : '🥖'}</div>
+      <div class="vignette">${p.photo_url ? `<img src="${echapper(p.photo_url)}" alt="" style="object-position:${p.photo_x ?? 50}% ${p.photo_y ?? 50}%;">` : '🥖'}</div>
       <div class="infos">
         <div class="nom">${echapper(p.nom)}${p.actif ? '' : ' <small>(masqué)</small>'}</div>
         <div class="desc">${echapper(p.description || 'Pas de descriptif')}${p.quantite_max ? ' · <b>Max ' + p.quantite_max + ' par créneau</b>' : ''}</div>
@@ -141,6 +149,11 @@ async function chargerProduits() {
     </div>`).join('');
 }
 
+function majApercu() {
+  const x = document.getElementById('photo-x').value, y = document.getElementById('photo-y').value;
+  document.getElementById('apercu-photo').style.objectPosition = x + '% ' + y + '%';
+}
+
 function modifier(i) {
   const p = produits[i];
   enEdition = p;
@@ -149,6 +162,10 @@ function modifier(i) {
   document.getElementById('description').value = p.description || '';
   document.getElementById('quantite-max').value = p.quantite_max || '';
   document.getElementById('photo').value = '';
+  document.getElementById('photo-x').value = p.photo_x ?? 50;
+  document.getElementById('photo-y').value = p.photo_y ?? 50;
+  document.getElementById('bloc-centrage').style.display = p.photo_url ? 'block' : 'none';
+  if (p.photo_url) { document.getElementById('apercu-photo').src = p.photo_url; majApercu(); }
   document.getElementById('btn-enregistrer').textContent = 'Enregistrer les modifications';
   document.getElementById('btn-annuler').style.display = 'block';
   window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -161,6 +178,7 @@ function annulerEdition() {
   document.getElementById('description').value = '';
   document.getElementById('quantite-max').value = '';
   document.getElementById('photo').value = '';
+  document.getElementById('bloc-centrage').style.display = 'none';
   document.getElementById('btn-enregistrer').textContent = 'Ajouter';
   document.getElementById('btn-annuler').style.display = 'none';
 }
@@ -177,6 +195,8 @@ async function enregistrerProduit() {
   bouton.disabled = true;
   try {
     let photo_url = enEdition ? enEdition.photo_url : null;
+    let photo_x = enEdition && !fichier ? parseInt(document.getElementById('photo-x').value, 10) : 50;
+    let photo_y = enEdition && !fichier ? parseInt(document.getElementById('photo-y').value, 10) : 50;
     if (fichier) {
       const blob = await reduireImage(fichier);
       const chemin = 'casino/' + Date.now() + '-' + nettoyerNomFichier(nom) + '.jpg';
@@ -185,11 +205,11 @@ async function enregistrerProduit() {
       photo_url = supabaseClient.storage.from('Catalogue').getPublicUrl(chemin).data.publicUrl;
     }
     if (enEdition) {
-      const { error } = await supabaseClient.from('produits_casino').update({ nom, description, photo_url, quantite_max }).eq('id', enEdition.id);
+      const { error } = await supabaseClient.from('produits_casino').update({ nom, description, photo_url, quantite_max, photo_x, photo_y }).eq('id', enEdition.id);
       if (error) throw new Error(error.message);
     } else {
       const ordre = produits.length ? Math.max(...produits.map(p => p.ordre || 0)) + 1 : 1;
-      const { error } = await supabaseClient.from('produits_casino').insert([{ nom, description, photo_url, quantite_max, ordre }]);
+      const { error } = await supabaseClient.from('produits_casino').insert([{ nom, description, photo_url, quantite_max, ordre, photo_x, photo_y }]);
       if (error) throw new Error(error.message.includes('duplicate') ? 'Ce produit existe déjà.' : error.message);
     }
     annulerEdition();
@@ -217,6 +237,7 @@ async function supprimer(i) {
 
 // ---------- Demandes de retrait après 8h ----------
 let demandes = [];
+let estChef = false;
 
 async function chargerDemandes() {
   const aujourdhui = new Date();
@@ -226,8 +247,8 @@ async function chargerDemandes() {
     .order('date_retrait', { ascending: true }).order('heure_retrait', { ascending: true });
   if (error) return; // table pas encore créée : on n'affiche rien
   demandes = data || [];
-  document.getElementById('card-demandes').style.display = demandes.length ? 'block' : 'none';
-  document.getElementById('liste-demandes').innerHTML = demandes.map((d, i) => {
+  document.getElementById('card-demandes').style.display = (demandes.length || !estChef) ? 'block' : 'none';
+  document.getElementById('liste-demandes').innerHTML = (demandes.length === 0 ? '<p class="empty">Aucune demande à valider.</p>' : '') + demandes.map((d, i) => {
     const [an, mo, jo] = d.date_retrait.split('-').map(Number);
     const quand = new Date(an, mo - 1, jo).toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' }) + ' à ' + d.heure_retrait.slice(0, 5).replace(':', 'h');
     return `<div class="demande">
@@ -256,10 +277,17 @@ async function traiterDemande(i, accepter) {
 }
 
 initProfil((profil) => {
-  if (profil.role !== 'chef') { document.getElementById('verrou').style.display = 'block'; return; }
+  estChef = profil.role === 'chef';
+  const estMathieu = (profil.nom || '').trim().toLowerCase() === 'mathieu';
+  if (!estChef && !estMathieu) { document.getElementById('verrou').style.display = 'block'; return; }
   document.getElementById('contenu').style.display = 'block';
-  document.getElementById('lien-client').value = new URL('casino.html', location.href).href;
-  chargerProduits();
+  if (estChef) {
+    document.getElementById('lien-client').value = new URL('casino.html', location.href).href;
+    chargerProduits();
+  } else {
+    // Mathieu ne voit que les demandes à valider
+    document.querySelectorAll('.reserve-chef').forEach(el => { el.style.display = 'none'; });
+  }
   chargerDemandes();
   supabaseClient.channel('demandes-casino').on('postgres_changes', { event: '*', schema: 'public', table: 'demandes_casino' }, chargerDemandes).subscribe();
 });
