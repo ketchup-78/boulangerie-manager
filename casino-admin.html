@@ -34,6 +34,13 @@
   .prod .actions button.danger{background:#fbe9ec;color:var(--danger);}
   .prod.cache{opacity:.5;}
   .empty{opacity:.5;}
+  .demande{border-top:1px solid #f0ebe3;padding:14px 0;}
+  .demande:first-child{border-top:none;}
+  .demande .quand{font-weight:700;margin-bottom:4px;}
+  .demande .btns{display:flex;gap:10px;margin-top:10px;}
+  .demande .btns button{flex:1;border:none;padding:13px;border-radius:12px;font-size:15px;font-weight:700;}
+  .btn-ok{background:#16803C;color:#fff;}
+  .btn-non{background:#fbe9ec;color:var(--danger);}
   #verrou{max-width:380px;margin:60px auto;text-align:center;padding:0 24px;}
 </style>
 <link rel="stylesheet" href="responsive.css?v=1">
@@ -50,6 +57,11 @@
 <div id="verrou" style="display:none;"><p>Cette page est réservée au chef.</p></div>
 
 <main id="contenu" style="display:none;">
+  <div class="card" id="card-demandes" style="display:none;">
+    <h2>⏳ Demandes à valider</h2>
+    <div id="liste-demandes"></div>
+  </div>
+
   <div class="card">
     <h2>Adresse à donner à ton client</h2>
     <p style="margin:0 0 6px;font-size:14px;">Il l'ouvre une seule fois et tape son code :</p>
@@ -203,11 +215,53 @@ async function supprimer(i) {
   chargerProduits();
 }
 
+// ---------- Demandes de retrait après 8h ----------
+let demandes = [];
+
+async function chargerDemandes() {
+  const aujourdhui = new Date();
+  const jour = aujourdhui.getFullYear() + '-' + String(aujourdhui.getMonth() + 1).padStart(2, '0') + '-' + String(aujourdhui.getDate()).padStart(2, '0');
+  const { data, error } = await supabaseClient.from('demandes_casino').select('*')
+    .eq('statut', 'en_attente').gte('date_retrait', jour)
+    .order('date_retrait', { ascending: true }).order('heure_retrait', { ascending: true });
+  if (error) return; // table pas encore créée : on n'affiche rien
+  demandes = data || [];
+  document.getElementById('card-demandes').style.display = demandes.length ? 'block' : 'none';
+  document.getElementById('liste-demandes').innerHTML = demandes.map((d, i) => {
+    const [an, mo, jo] = d.date_retrait.split('-').map(Number);
+    const quand = new Date(an, mo - 1, jo).toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' }) + ' à ' + d.heure_retrait.slice(0, 5).replace(':', 'h');
+    return `<div class="demande">
+      <div class="quand">${quand}</div>
+      <div style="font-size:14px;">${d.lignes.map(l => echapper(l.quantite) + ' × ' + echapper(l.produit)).join('<br>')}</div>
+      <div class="btns"><button class="btn-ok" onclick="traiterDemande(${i}, true)">✅ Accepter</button><button class="btn-non" onclick="traiterDemande(${i}, false)">❌ Refuser</button></div>
+    </div>`;
+  }).join('');
+}
+
+async function traiterDemande(i, accepter) {
+  const d = demandes[i];
+  if (!d) return;
+  if (accepter) {
+    const lignes = d.lignes.map(l => ({
+      client: 'Casino Shop', produit: l.produit, quantite: l.quantite, atelier: 'boulangerie',
+      date_retrait: d.date_retrait, heure_retrait: d.heure_retrait, statut: 'a_faire',
+      prise_par: 'Casino (site)', notes: 'Commande en ligne — retrait validé'
+    }));
+    const { error } = await supabaseClient.from('commandes').insert(lignes);
+    if (error) { alert('Erreur : ' + error.message); return; }
+  } else if (!confirm('Refuser cette demande ?')) return;
+  const { error: e2 } = await supabaseClient.from('demandes_casino').update({ statut: accepter ? 'acceptee' : 'refusee' }).eq('id', d.id);
+  if (e2) { alert('Erreur : ' + e2.message); return; }
+  chargerDemandes();
+}
+
 initProfil((profil) => {
   if (profil.role !== 'chef') { document.getElementById('verrou').style.display = 'block'; return; }
   document.getElementById('contenu').style.display = 'block';
   document.getElementById('lien-client').value = new URL('casino.html', location.href).href;
   chargerProduits();
+  chargerDemandes();
+  supabaseClient.channel('demandes-casino').on('postgres_changes', { event: '*', schema: 'public', table: 'demandes_casino' }, chargerDemandes).subscribe();
 });
 </script>
 </body>

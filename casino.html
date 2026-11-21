@@ -11,7 +11,7 @@
 <style>
   :root{--bg:#FAF7F2;--surface:#fff;--ink:#241A14;--accent:#C68A2E;--accent-dark:#9C6B1E;--danger:#B00020;--success:#16803C;--radius:18px;}
   *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
-  body{font-family:'Inter',Arial,sans-serif;margin:0;background:var(--bg);color:var(--ink);padding-bottom:150px;}
+  body{font-family:'Inter',Arial,sans-serif;margin:0;background:var(--bg);color:var(--ink);padding-bottom:200px;}
   header{background:var(--ink);color:#fff;padding:26px 20px 22px;text-align:center;}
   header .nom{font-family:'Fraunces',serif;font-size:24px;font-weight:700;margin:0;}
   header .sous{opacity:.7;font-size:14px;margin:6px 0 0;}
@@ -81,8 +81,9 @@
     <label for="date-livraison">Pour le</label>
     <input type="date" id="date-livraison">
     <label for="heure-livraison">à</label>
-    <select id="heure-livraison"></select>
+    <select id="heure-livraison" onchange="majBouton()"></select>
   </div>
+  <p id="info-creneau" style="display:none;max-width:760px;margin:8px auto 0;font-size:13px;color:var(--accent-dark);font-weight:600;">Après 8h, ta demande doit être validée par la boulangerie.</p>
   <button class="btn" id="btn-valider" onclick="validerCommande()" disabled>Choisis tes produits</button>
 </div>
 <div class="toast" id="toast"></div>
@@ -147,8 +148,8 @@ async function ouvrirBoutique() {
   const champ = document.getElementById('date-livraison');
   champ.min = dateLocaleCasino();
   champ.value = dateLocaleCasino(demain);
-  const creneaux = ['08:00','09:00','10:00','11:00','12:00','13:00'];
-  document.getElementById('heure-livraison').innerHTML = creneaux.map(h => `<option value="${h}" ${h === '08:00' ? 'selected' : ''}>${h.replace(':00', 'h')}</option>`).join('');
+  const creneaux = ['08:00','08:30','09:00','09:30','10:00','10:30','11:00','11:30','12:00','12:30','13:00','13:30'];
+  document.getElementById('heure-livraison').innerHTML = creneaux.map(h => `<option value="${h}" ${h === '08:00' ? 'selected' : ''}>${h.replace(':', 'h')}</option>`).join('');
   await chargerProduits();
   chargerMesCommandes();
 }
@@ -203,9 +204,12 @@ function changerQte(i, delta) {
 
 function majBouton() {
   const total = quantites.reduce((a, b) => a + b, 0);
+  const apres8h = document.getElementById('heure-livraison').value > '08:00';
+  document.getElementById('info-creneau').style.display = apres8h ? 'block' : 'none';
   const b = document.getElementById('btn-valider');
   b.disabled = total === 0;
-  b.textContent = total === 0 ? 'Choisis tes produits' : 'Valider la commande (' + total + ' pièce' + (total > 1 ? 's' : '') + ')';
+  const verbe = apres8h ? 'Envoyer la demande' : 'Valider la commande';
+  b.textContent = total === 0 ? 'Choisis tes produits' : verbe + ' (' + total + ' pièce' + (total > 1 ? 's' : '') + ')';
 }
 
 async function validerCommande() {
@@ -216,7 +220,7 @@ async function validerCommande() {
   const b = document.getElementById('btn-valider');
   b.disabled = true; b.textContent = 'Envoi…';
   const heure = document.getElementById('heure-livraison').value;
-  const { error } = await supabaseClient.rpc('casino_commander', { p_code: code, p_date: date, p_heure: heure, p_lignes: lignes });
+  const { data: resultat, error } = await supabaseClient.rpc('casino_commander', { p_code: code, p_date: date, p_heure: heure, p_lignes: lignes });
   if (error) {
     if ((error.message || '').includes('Code invalide')) { ecrireCode(null); location.reload(); return; }
     toast(error.message, '#B00020'); majBouton(); return;
@@ -224,7 +228,7 @@ async function validerCommande() {
   quantites = produits.map(() => 0);
   produits.forEach((p, i) => { document.getElementById('n-' + i).value = 0; document.getElementById('carte-' + i).classList.remove('choisi'); });
   majBouton();
-  toast('✅ Commande envoyée, merci !');
+  toast(resultat === 'demande' ? '⏳ Demande envoyée : la boulangerie te confirme le retrait.' : '✅ Commande envoyée, merci !');
   chargerMesCommandes();
 }
 
@@ -232,10 +236,19 @@ async function chargerMesCommandes() {
   const zone = document.getElementById('mes-commandes');
   const { data, error } = await supabaseClient.rpc('casino_mes_commandes', { p_code: code });
   if (error) { zone.innerHTML = '<p class="vide">Impossible de charger tes commandes.</p>'; return; }
-  if (!data || data.length === 0) { zone.innerHTML = '<p class="vide">Aucune commande à venir.</p>'; return; }
+  const { data: demandes } = await supabaseClient.rpc('casino_mes_demandes', { p_code: code });
+  if ((!data || data.length === 0) && (!demandes || demandes.length === 0)) { zone.innerHTML = '<p class="vide">Aucune commande à venir.</p>'; return; }
+  const quand = (d, h) => {
+    const [an, mo, jo] = d.split('-').map(Number);
+    return new Date(an, mo - 1, jo).toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' }) + ' à ' + h.replace(':', 'h');
+  };
+  const htmlDemandes = (demandes || []).map(dm => `<div class="cmd" style="${dm.statut === 'refusee' ? 'opacity:.85;' : ''}"><b>${quand(dm.date_retrait, dm.heure_retrait)} — ${dm.statut === 'refusee' ? '❌ refusée' : '⏳ en attente de validation'}</b>
+      <div class="detail">${dm.lignes.map(l => echapper(l.quantite) + ' × ' + echapper(l.produit)).join('<br>')}</div>
+      ${dm.statut === 'refusee' ? '<div class="detail" style="margin-top:6px;">La boulangerie ne peut pas à cette heure : choisis un autre créneau.</div>' : ''}
+      <button onclick="annulerDemande('${dm.id}')">${dm.statut === 'refusee' ? 'Supprimer' : 'Annuler la demande'}</button></div>`).join('');
   const groupes = {};
-  data.forEach(l => { (groupes[l.date_retrait + '|' + l.heure_retrait] = groupes[l.date_retrait + '|' + l.heure_retrait] || []).push(l); });
-  zone.innerHTML = Object.keys(groupes).sort().map(cle => {
+  (data || []).forEach(l => { (groupes[l.date_retrait + '|' + l.heure_retrait] = groupes[l.date_retrait + '|' + l.heure_retrait] || []).push(l); });
+  zone.innerHTML = htmlDemandes + Object.keys(groupes).sort().map(cle => {
     const [d, h] = cle.split('|');
     const [an, mo, jo] = d.split('-').map(Number);
     const titre = new Date(an, mo - 1, jo).toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' }) + ' à ' + h.replace(':', 'h');
@@ -246,6 +259,13 @@ async function chargerMesCommandes() {
       <div class="detail">${lignes.map(l => echapper(l.quantite) + ' × ' + echapper(l.produit)).join('<br>')}</div>
       ${annulable ? `<button onclick="annulerJour('${d}', '${h}')">Annuler cette commande</button>` : ''}</div>`;
   }).join('');
+}
+
+async function annulerDemande(id) {
+  if (!confirm('Annuler cette demande ?')) return;
+  const { error } = await supabaseClient.rpc('casino_annuler_demande', { p_code: code, p_id: id });
+  if (error) { toast('Erreur : ' + error.message, '#B00020'); return; }
+  chargerMesCommandes();
 }
 
 async function annulerJour(date, heure) {

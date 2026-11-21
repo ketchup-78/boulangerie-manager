@@ -64,6 +64,7 @@
 </header>
 
 <main>
+  <a href="casino-admin.html" id="bandeau-demandes" style="display:none; background:#C68A2E; color:#241A14; text-decoration:none; font-weight:700; padding:16px; border-radius:14px; margin-bottom:16px; text-align:center;"></a>
   <div class="card" id="card-pas-cuites" style="display:none;">
     <h2>🥖 Cuit ou pas cuit ?</h2>
     <div id="tuiles-tradition" style="display:flex; flex-wrap:wrap; gap:10px; margin-bottom:14px;"></div>
@@ -469,6 +470,16 @@ async function basculerJourNotif(n) {
   r.textContent = error ? 'Erreur : ' + error.message : '✅ Enregistré';
 }
 
+// ---------- Demandes Casino à valider (chef) ----------
+async function verifierDemandesCasino(profil) {
+  if (atelier !== 'boulangerie' || profil.role !== 'chef') return;
+  const { count, error } = await supabaseClient.from('demandes_casino').select('*', { count: 'exact', head: true }).eq('statut', 'en_attente').gte('date_retrait', dateLocale());
+  if (error) return;
+  const b = document.getElementById('bandeau-demandes');
+  b.style.display = count > 0 ? 'block' : 'none';
+  b.textContent = '⏳ ' + count + ' demande' + (count > 1 ? 's' : '') + ' Casino Shop à valider →';
+}
+
 // ---------- DLC ----------
 async function chargerDlc() {
   const conteneur = document.getElementById('liste-dlc');
@@ -627,6 +638,8 @@ initProfil((profil) => {
 
   chargerTout();
   initCartePasCuites(profil);
+  verifierDemandesCasino(profil);
+  supabaseClient.channel('demandes-labo').on('postgres_changes', { event: '*', schema: 'public', table: 'demandes_casino' }, () => verifierDemandesCasino(profil)).subscribe();
   initReglageNotifs(profil);
 
   supabaseClient
