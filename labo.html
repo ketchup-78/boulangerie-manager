@@ -49,6 +49,8 @@
   .raccourci:active{transform:scale(0.97);}
 </style>
 <link rel="stylesheet" href="responsive.css?v=1">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="icon" type="image/png" href="icone-192.png">
 </head>
 <body>
 
@@ -140,10 +142,16 @@
     <h2>📦 DLC à surveiller</h2>
     <div id="liste-dlc"><p class="empty">Chargement...</p></div>
   </div>
+  <div class="card" id="card-reglage-notifs" style="display:none;">
+    <h2>🔔 Mes notifications Casino</h2>
+    <p style="font-size:14px;opacity:.7;margin:0 0 12px;">Choisis les jours où tu veux recevoir la notification de 6h avec les commandes Casino Shop.</p>
+    <div id="jours-notifs" style="display:flex; flex-wrap:wrap; gap:8px;"></div>
+    <p id="retour-notifs" style="font-size:13px;font-weight:600;color:var(--success);min-height:18px;margin:10px 0 0;"></p>
+  </div>
 </main>
 
 <script src="supabase-config.js?v=6"></script>
-<script src="profil.js?v=10"></script>
+<script src="profil.js?v=12"></script>
 <script>
 
 const params = new URLSearchParams(window.location.search);
@@ -432,6 +440,35 @@ async function enregistrerPasCuites() {
   afficherTuilesTradition();
 }
 
+// ---------- Jours de réception des notifications Casino ----------
+const NOMS_JOURS = [[1, 'Lun'], [2, 'Mar'], [3, 'Mer'], [4, 'Jeu'], [5, 'Ven'], [6, 'Sam'], [7, 'Dim']];
+let joursNotifs = [1, 2, 3, 4, 5, 6, 7];
+
+async function initReglageNotifs(profil) {
+  if (atelier !== 'boulangerie' || profil.service === 'vente') return;
+  const { data, error } = await supabaseClient.from('employes').select('jours_casino').eq('nom', profil.nom).maybeSingle();
+  if (error) return; // colonne pas encore créée : on n'affiche rien
+  if (data && Array.isArray(data.jours_casino)) joursNotifs = data.jours_casino;
+  document.getElementById('card-reglage-notifs').style.display = 'block';
+  dessinerJoursNotifs();
+}
+
+function dessinerJoursNotifs() {
+  document.getElementById('jours-notifs').innerHTML = NOMS_JOURS.map(([n, nom]) => {
+    const actif = joursNotifs.includes(n);
+    return `<button onclick="basculerJourNotif(${n})" style="border:2px solid ${actif ? 'var(--accent)' : '#ddd'}; background:${actif ? 'var(--accent)' : '#fff'}; color:var(--ink); padding:12px 14px; border-radius:12px; font-size:15px; font-weight:600; min-width:60px;">${nom}</button>`;
+  }).join('');
+}
+
+async function basculerJourNotif(n) {
+  joursNotifs = joursNotifs.includes(n) ? joursNotifs.filter(j => j !== n) : joursNotifs.concat([n]).sort();
+  dessinerJoursNotifs();
+  const r = document.getElementById('retour-notifs');
+  const { error } = await supabaseClient.from('employes').update({ jours_casino: joursNotifs }).eq('nom', window.profilActuel.nom);
+  r.style.color = error ? 'var(--danger)' : 'var(--success)';
+  r.textContent = error ? 'Erreur : ' + error.message : '✅ Enregistré';
+}
+
 // ---------- DLC ----------
 async function chargerDlc() {
   const conteneur = document.getElementById('liste-dlc');
@@ -590,6 +627,7 @@ initProfil((profil) => {
 
   chargerTout();
   initCartePasCuites(profil);
+  initReglageNotifs(profil);
 
   supabaseClient
     .channel('labo-' + atelier)
