@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Boutique Casino — gestion</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:wght@600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+  :root{--bg:#FAF7F2;--surface:#fff;--ink:#241A14;--accent:#C68A2E;--danger:#B00020;--radius:18px;}
+  *{box-sizing:border-box;}
+  body{font-family:'Inter',Arial,sans-serif;margin:0;background:var(--bg);color:var(--ink);}
+  header{background:var(--ink);color:#fff;padding:18px 20px;display:flex;align-items:center;gap:14px;}
+  header h1{margin:0;font-family:'Fraunces',serif;font-size:21px;flex:1;text-align:center;}
+  header a.home{display:inline-flex;align-items:center;justify-content:center;width:52px;height:52px;border-radius:50%;background:var(--accent);color:#241A14;text-decoration:none;font-size:24px;}
+  main{padding:20px;max-width:700px;margin:auto;}
+  .card{background:var(--surface);border-radius:var(--radius);padding:20px;margin-bottom:16px;box-shadow:0 2px 8px rgba(0,0,0,.06);}
+  .card h2{margin-top:0;font-family:'Fraunces',serif;font-size:19px;}
+  label{display:block;font-size:13px;opacity:.7;margin:10px 0 4px;}
+  input[type=text],textarea{width:100%;padding:12px;border-radius:10px;border:1px solid #ddd;font-size:15px;font-family:inherit;}
+  textarea{min-height:70px;resize:vertical;}
+  button.primary{margin-top:14px;width:100%;border:none;background:var(--accent);color:#241A14;padding:14px;border-radius:12px;font-size:16px;font-weight:600;}
+  button.primary:disabled{opacity:.5;}
+  .prod{display:flex;gap:12px;padding:14px 0;border-top:1px solid #f0ebe3;}
+  .prod:first-of-type{border-top:none;}
+  .prod .vignette{width:84px;height:84px;border-radius:12px;background:#efe7d9;flex:0 0 84px;display:flex;align-items:center;justify-content:center;font-size:30px;overflow:hidden;}
+  .prod .vignette img{width:100%;height:100%;object-fit:cover;}
+  .prod .infos{flex:1;min-width:0;}
+  .prod .nom{font-weight:600;}
+  .prod .desc{font-size:13px;opacity:.65;margin:2px 0 8px;}
+  .prod .actions{display:flex;flex-wrap:wrap;gap:6px;}
+  .prod .actions button{border:none;background:#f1e9da;padding:9px 12px;border-radius:10px;font-size:13px;font-weight:600;color:var(--ink);}
+  .prod .actions button.danger{background:#fbe9ec;color:var(--danger);}
+  .prod.cache{opacity:.5;}
+  .empty{opacity:.5;}
+  #verrou{max-width:380px;margin:60px auto;text-align:center;padding:0 24px;}
+</style>
+</head>
+<body>
+<header>
+  <a class="home" href="index.html" title="Accueil">🏠</a>
+  <h1>🛍️ Boutique Casino</h1>
+  <span style="width:52px;"></span>
+</header>
+
+<div id="verrou" style="display:none;"><p>Cette page est réservée au chef.</p></div>
+
+<main id="contenu" style="display:none;">
+  <div class="card">
+    <h2>Adresse à donner à ton client</h2>
+    <p style="margin:0 0 6px;font-size:14px;">Il l'ouvre une seule fois et tape son code :</p>
+    <input type="text" id="lien-client" readonly onclick="this.select()">
+    <p style="font-size:12px;opacity:.6;margin:8px 0 0;">Le code se change avec la commande « code » dans Supabase (voir le fichier casino.sql).</p>
+  </div>
+
+  <div class="card">
+    <h2 id="titre-form">Ajouter un produit</h2>
+    <label>Nom du produit</label>
+    <input type="text" id="nom" placeholder="Ex : Chaussons aux pommes">
+    <label>Petit descriptif (facultatif)</label>
+    <textarea id="description" placeholder="Ex : Pâte feuilletée pur beurre, compote maison"></textarea>
+    <label>Photo (facultatif)</label>
+    <input type="file" id="photo" accept="image/*">
+    <button class="primary" id="btn-enregistrer" onclick="enregistrerProduit()">Ajouter</button>
+    <button class="primary" id="btn-annuler" onclick="annulerEdition()" style="display:none;background:#eee;">Annuler la modification</button>
+  </div>
+
+  <div class="card">
+    <h2>Produits de sa boutique</h2>
+    <div id="liste"><p class="empty">Chargement…</p></div>
+  </div>
+</main>
+
+<script src="supabase-config.js?v=6"></script>
+<script src="profil.js?v=11"></script>
+<script>
+let produits = [];
+let enEdition = null;
+
+function echapper(t) {
+  return String(t == null ? '' : t).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+function nettoyerNomFichier(nom) {
+  return nom.normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-zA-Z0-9._-]/g, '_');
+}
+
+// Réduit la photo pour qu'elle reste légère sur le téléphone du client
+function reduireImage(fichier, max = 900) {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.onload = () => {
+      const ratio = Math.min(1, max / Math.max(img.width, img.height));
+      const c = document.createElement('canvas');
+      c.width = Math.round(img.width * ratio); c.height = Math.round(img.height * ratio);
+      c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
+      c.toBlob(b => b ? resolve(b) : reject(new Error('Photo illisible')), 'image/jpeg', 0.85);
+    };
+    img.onerror = () => reject(new Error('Photo illisible'));
+    img.src = URL.createObjectURL(fichier);
+  });
+}
+
+async function chargerProduits() {
+  const { data, error } = await supabaseClient.from('produits_casino').select('*')
+    .order('ordre', { ascending: true }).order('nom', { ascending: true });
+  const zone = document.getElementById('liste');
+  if (error) { zone.innerHTML = '<p class="empty">Erreur : ' + echapper(error.message) + '</p>'; return; }
+  produits = data || [];
+  if (produits.length === 0) { zone.innerHTML = '<p class="empty">Aucun produit pour l\'instant.</p>'; return; }
+  zone.innerHTML = produits.map((p, i) => `
+    <div class="prod ${p.actif ? '' : 'cache'}">
+      <div class="vignette">${p.photo_url ? `<img src="${echapper(p.photo_url)}" alt="">` : '🥖'}</div>
+      <div class="infos">
+        <div class="nom">${echapper(p.nom)}${p.actif ? '' : ' <small>(masqué)</small>'}</div>
+        <div class="desc">${echapper(p.description || 'Pas de descriptif')}</div>
+        <div class="actions">
+          <button onclick="modifier(${i})">✏️ Modifier</button>
+          <button onclick="basculerActif(${i})">${p.actif ? '🙈 Masquer' : '👁️ Afficher'}</button>
+          <button class="danger" onclick="supprimer(${i})">🗑️</button>
+        </div>
+      </div>
+    </div>`).join('');
+}
+
+function modifier(i) {
+  const p = produits[i];
+  enEdition = p;
+  document.getElementById('titre-form').textContent = 'Modifier « ' + p.nom + ' »';
+  document.getElementById('nom').value = p.nom;
+  document.getElementById('description').value = p.description || '';
+  document.getElementById('photo').value = '';
+  document.getElementById('btn-enregistrer').textContent = 'Enregistrer les modifications';
+  document.getElementById('btn-annuler').style.display = 'block';
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+function annulerEdition() {
+  enEdition = null;
+  document.getElementById('titre-form').textContent = 'Ajouter un produit';
+  document.getElementById('nom').value = '';
+  document.getElementById('description').value = '';
+  document.getElementById('photo').value = '';
+  document.getElementById('btn-enregistrer').textContent = 'Ajouter';
+  document.getElementById('btn-annuler').style.display = 'none';
+}
+
+async function enregistrerProduit() {
+  const nom = document.getElementById('nom').value.trim();
+  const description = document.getElementById('description').value.trim() || null;
+  const fichier = document.getElementById('photo').files[0];
+  if (!nom) { alert('Donne un nom au produit.'); return; }
+  const bouton = document.getElementById('btn-enregistrer');
+  bouton.disabled = true;
+  try {
+    let photo_url = enEdition ? enEdition.photo_url : null;
+    if (fichier) {
+      const blob = await reduireImage(fichier);
+      const chemin = 'casino/' + Date.now() + '-' + nettoyerNomFichier(nom) + '.jpg';
+      const { error: errUp } = await supabaseClient.storage.from('Catalogue').upload(chemin, blob, { contentType: 'image/jpeg' });
+      if (errUp) throw new Error('Photo : ' + errUp.message);
+      photo_url = supabaseClient.storage.from('Catalogue').getPublicUrl(chemin).data.publicUrl;
+    }
+    if (enEdition) {
+      const { error } = await supabaseClient.from('produits_casino').update({ nom, description, photo_url }).eq('id', enEdition.id);
+      if (error) throw new Error(error.message);
+    } else {
+      const ordre = produits.length ? Math.max(...produits.map(p => p.ordre || 0)) + 1 : 1;
+      const { error } = await supabaseClient.from('produits_casino').insert([{ nom, description, photo_url, ordre }]);
+      if (error) throw new Error(error.message.includes('duplicate') ? 'Ce produit existe déjà.' : error.message);
+    }
+    annulerEdition();
+    await chargerProduits();
+  } catch (e) {
+    alert('Erreur : ' + e.message);
+  }
+  bouton.disabled = false;
+}
+
+async function basculerActif(i) {
+  const p = produits[i];
+  const { error } = await supabaseClient.from('produits_casino').update({ actif: !p.actif }).eq('id', p.id);
+  if (error) { alert('Erreur : ' + error.message); return; }
+  chargerProduits();
+}
+
+async function supprimer(i) {
+  const p = produits[i];
+  if (!confirm('Supprimer « ' + p.nom + ' » de la boutique ? (Ses anciennes commandes restent sur la facture.)')) return;
+  const { error } = await supabaseClient.from('produits_casino').delete().eq('id', p.id);
+  if (error) { alert('Erreur : ' + error.message); return; }
+  chargerProduits();
+}
+
+initProfil((profil) => {
+  if (profil.role !== 'chef') { document.getElementById('verrou').style.display = 'block'; return; }
+  document.getElementById('contenu').style.display = 'block';
+  document.getElementById('lien-client').value = new URL('casino.html', location.href).href;
+  chargerProduits();
+});
+</script>
+</body>
+</html>

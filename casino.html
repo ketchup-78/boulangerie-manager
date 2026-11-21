@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="robots" content="noindex, nofollow">
+<title>Commande — Casino Shop</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:wght@600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+  :root{--bg:#FAF7F2;--surface:#fff;--ink:#241A14;--accent:#C68A2E;--accent-dark:#9C6B1E;--danger:#B00020;--success:#16803C;--radius:18px;}
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+  body{font-family:'Inter',Arial,sans-serif;margin:0;background:var(--bg);color:var(--ink);padding-bottom:150px;}
+  header{background:var(--ink);color:#fff;padding:26px 20px 22px;text-align:center;}
+  header .nom{font-family:'Fraunces',serif;font-size:24px;font-weight:700;margin:0;}
+  header .sous{opacity:.7;font-size:14px;margin:6px 0 0;}
+  main{padding:20px;max-width:760px;margin:auto;}
+  h2{font-family:'Fraunces',serif;font-size:20px;margin:26px 0 12px;}
+  .grille{display:grid;grid-template-columns:repeat(2,1fr);gap:14px;}
+  @media(min-width:640px){.grille{grid-template-columns:repeat(3,1fr);}}
+  .carte{background:var(--surface);border-radius:var(--radius);overflow:hidden;box-shadow:0 2px 10px rgba(0,0,0,.07);display:flex;flex-direction:column;}
+  .carte .photo{aspect-ratio:4/3;background:#efe7d9;display:flex;align-items:center;justify-content:center;font-size:42px;overflow:hidden;}
+  .carte .photo img{width:100%;height:100%;object-fit:cover;}
+  .carte .corps{padding:12px 12px 14px;display:flex;flex-direction:column;gap:6px;flex:1;}
+  .carte .titre{font-weight:600;font-size:16px;}
+  .carte .desc{font-size:13px;opacity:.65;line-height:1.35;flex:1;}
+  .qte{display:flex;align-items:center;justify-content:space-between;margin-top:6px;}
+  .qte button{width:44px;height:44px;border-radius:50%;border:none;background:#f1e9da;font-size:24px;font-weight:600;color:var(--ink);}
+  .qte button.plus{background:var(--accent);}
+  .qte button:active{transform:scale(.92);}
+  .qte .n{font-size:20px;font-weight:700;min-width:30px;text-align:center;}
+  .carte.choisi{outline:3px solid var(--accent);}
+  .panier{position:fixed;left:0;right:0;bottom:0;background:var(--surface);box-shadow:0 -4px 18px rgba(0,0,0,.12);padding:14px 16px 18px;z-index:50;}
+  .panier .ligne{display:flex;gap:10px;align-items:center;max-width:760px;margin:auto;}
+  .panier label{font-size:13px;opacity:.7;}
+  .panier input[type=date]{flex:1;padding:12px;font-size:16px;border-radius:12px;border:1px solid #ddd;font-family:inherit;}
+  .btn{width:100%;max-width:760px;display:block;margin:10px auto 0;border:none;background:var(--accent);color:var(--ink);padding:16px;border-radius:14px;font-size:18px;font-weight:700;font-family:inherit;}
+  .btn:disabled{opacity:.4;}
+  .cmd{background:var(--surface);border-radius:14px;padding:14px;margin-bottom:10px;box-shadow:0 2px 8px rgba(0,0,0,.05);}
+  .cmd b{display:block;margin-bottom:4px;text-transform:capitalize;}
+  .cmd .detail{font-size:14px;opacity:.75;}
+  .cmd button{margin-top:10px;border:none;background:#fbe9ec;color:var(--danger);padding:10px 14px;border-radius:10px;font-weight:600;font-size:14px;}
+  .vide{opacity:.55;}
+  #acces{max-width:380px;margin:60px auto;padding:0 24px;text-align:center;}
+  #acces input{width:100%;padding:16px;font-size:22px;text-align:center;border-radius:14px;border:1px solid #ddd;margin:14px 0;letter-spacing:3px;}
+  #erreur-code{color:var(--danger);min-height:22px;font-size:14px;}
+  .toast{position:fixed;top:16px;left:16px;right:16px;background:var(--success);color:#fff;padding:16px;border-radius:14px;text-align:center;font-weight:600;z-index:100;display:none;}
+  .deco{background:none;border:none;color:var(--ink);opacity:.5;font-size:13px;text-decoration:underline;margin:30px auto 0;display:block;}
+</style>
+</head>
+<body>
+<header>
+  <p class="nom">Pâtisserie Desauw Daniel</p>
+  <p class="sous">Commande Casino Shop</p>
+</header>
+
+<div id="acces" style="display:none;">
+  <h2 style="margin-top:0;">Bienvenue 👋</h2>
+  <p>Entre ton code pour passer commande.</p>
+  <input id="champ-code" type="password" inputmode="numeric" autocomplete="off" placeholder="Code">
+  <div id="erreur-code"></div>
+  <button class="btn" onclick="validerCode()">Entrer</button>
+</div>
+
+<main id="boutique" style="display:none;">
+  <h2 style="margin-top:0;">Nos produits</h2>
+  <div class="grille" id="grille"><p class="vide">Chargement…</p></div>
+  <h2>Mes commandes à venir</h2>
+  <div id="mes-commandes"><p class="vide">Chargement…</p></div>
+  <button class="deco" onclick="deconnecter()">Se déconnecter</button>
+</main>
+
+<div class="panier" id="panier" style="display:none;">
+  <div class="ligne">
+    <label for="date-livraison">Pour le</label>
+    <input type="date" id="date-livraison">
+  </div>
+  <button class="btn" id="btn-valider" onclick="validerCommande()" disabled>Choisis tes produits</button>
+</div>
+<div class="toast" id="toast"></div>
+
+<script src="supabase-config.js?v=6"></script>
+<script>
+let produits = [];
+let quantites = [];
+let code = null;
+
+function echapper(t) {
+  return String(t == null ? '' : t).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+function dateLocaleCasino(d) {
+  d = d || new Date();
+  return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+}
+function lireCode() { try { return localStorage.getItem('casino_code'); } catch (e) { return null; } }
+function ecrireCode(v) { try { v ? localStorage.setItem('casino_code', v) : localStorage.removeItem('casino_code'); } catch (e) {} }
+
+function toast(msg, couleur) {
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.style.background = couleur || '';
+  t.style.display = 'block';
+  setTimeout(() => { t.style.display = 'none'; }, 3500);
+}
+
+async function demarrer() {
+  code = lireCode();
+  if (code) {
+    const { data } = await supabaseClient.rpc('casino_verifier', { p_code: code });
+    if (data === true) { ouvrirBoutique(); return; }
+    ecrireCode(null);
+  }
+  document.getElementById('acces').style.display = 'block';
+}
+
+async function validerCode() {
+  const saisi = document.getElementById('champ-code').value.trim();
+  const err = document.getElementById('erreur-code');
+  err.textContent = '';
+  if (!saisi) return;
+  const { data, error } = await supabaseClient.rpc('casino_verifier', { p_code: saisi });
+  if (error) { err.textContent = 'Problème de connexion, réessaie.'; return; }
+  if (data !== true) { err.textContent = 'Code incorrect.'; return; }
+  code = saisi; ecrireCode(code);
+  document.getElementById('acces').style.display = 'none';
+  ouvrirBoutique();
+}
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Enter' && document.getElementById('acces').style.display !== 'none') validerCode();
+});
+
+function deconnecter() {
+  ecrireCode(null); location.reload();
+}
+
+async function ouvrirBoutique() {
+  document.getElementById('boutique').style.display = 'block';
+  document.getElementById('panier').style.display = 'block';
+  const demain = new Date(); demain.setDate(demain.getDate() + 1);
+  const champ = document.getElementById('date-livraison');
+  champ.min = dateLocaleCasino();
+  champ.value = dateLocaleCasino(demain);
+  await chargerProduits();
+  chargerMesCommandes();
+}
+
+async function chargerProduits() {
+  const { data, error } = await supabaseClient.from('produits_casino').select('*')
+    .eq('actif', true).order('ordre', { ascending: true }).order('nom', { ascending: true });
+  const grille = document.getElementById('grille');
+  if (error) { grille.innerHTML = '<p class="vide">Impossible de charger les produits.</p>'; return; }
+  produits = data || [];
+  quantites = produits.map(() => 0);
+  if (produits.length === 0) { grille.innerHTML = '<p class="vide">Aucun produit pour le moment.</p>'; return; }
+  grille.innerHTML = produits.map((p, i) => `
+    <div class="carte" id="carte-${i}">
+      <div class="photo">${p.photo_url ? `<img src="${echapper(p.photo_url)}" alt="${echapper(p.nom)}" loading="lazy">` : '🥖'}</div>
+      <div class="corps">
+        <div class="titre">${echapper(p.nom)}</div>
+        <div class="desc">${echapper(p.description || '')}</div>
+        <div class="qte">
+          <button onclick="changerQte(${i}, -1)" aria-label="Moins">−</button>
+          <span class="n" id="n-${i}">0</span>
+          <button class="plus" onclick="changerQte(${i}, 1)" aria-label="Plus">+</button>
+        </div>
+      </div>
+    </div>`).join('');
+}
+
+function changerQte(i, delta) {
+  quantites[i] = Math.max(0, Math.min(999, quantites[i] + delta));
+  document.getElementById('n-' + i).textContent = quantites[i];
+  document.getElementById('carte-' + i).classList.toggle('choisi', quantites[i] > 0);
+  majBouton();
+}
+
+function majBouton() {
+  const total = quantites.reduce((a, b) => a + b, 0);
+  const b = document.getElementById('btn-valider');
+  b.disabled = total === 0;
+  b.textContent = total === 0 ? 'Choisis tes produits' : 'Valider la commande (' + total + ' pièce' + (total > 1 ? 's' : '') + ')';
+}
+
+async function validerCommande() {
+  const date = document.getElementById('date-livraison').value;
+  if (!date) { toast('Choisis une date', '#B00020'); return; }
+  const lignes = produits.map((p, i) => ({ produit: p.nom, quantite: quantites[i] })).filter(l => l.quantite > 0);
+  if (lignes.length === 0) return;
+  const b = document.getElementById('btn-valider');
+  b.disabled = true; b.textContent = 'Envoi…';
+  const { error } = await supabaseClient.rpc('casino_commander', { p_code: code, p_date: date, p_lignes: lignes });
+  if (error) {
+    if ((error.message || '').includes('Code invalide')) { ecrireCode(null); location.reload(); return; }
+    toast('Erreur : ' + error.message, '#B00020'); majBouton(); return;
+  }
+  quantites = produits.map(() => 0);
+  produits.forEach((p, i) => { document.getElementById('n-' + i).textContent = 0; document.getElementById('carte-' + i).classList.remove('choisi'); });
+  majBouton();
+  toast('✅ Commande envoyée, merci !');
+  chargerMesCommandes();
+}
+
+async function chargerMesCommandes() {
+  const zone = document.getElementById('mes-commandes');
+  const { data, error } = await supabaseClient.rpc('casino_mes_commandes', { p_code: code });
+  if (error) { zone.innerHTML = '<p class="vide">Impossible de charger tes commandes.</p>'; return; }
+  if (!data || data.length === 0) { zone.innerHTML = '<p class="vide">Aucune commande à venir.</p>'; return; }
+  const parDate = {};
+  data.forEach(l => { (parDate[l.date_retrait] = parDate[l.date_retrait] || []).push(l); });
+  zone.innerHTML = Object.keys(parDate).sort().map(d => {
+    const [an, mo, jo] = d.split('-').map(Number);
+    const titre = new Date(an, mo - 1, jo).toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' });
+    const lignes = parDate[d];
+    const annulable = lignes.every(l => l.statut === 'a_faire');
+    const pret = lignes.some(l => l.statut === 'pret');
+    return `<div class="cmd"><b>${titre}${pret ? ' — ✅ prête' : ''}</b>
+      <div class="detail">${lignes.map(l => echapper(l.quantite) + ' × ' + echapper(l.produit)).join('<br>')}</div>
+      ${annulable ? `<button onclick="annulerJour('${d}')">Annuler cette commande</button>` : ''}</div>`;
+  }).join('');
+}
+
+async function annulerJour(date) {
+  if (!confirm('Annuler toute la commande de ce jour ?')) return;
+  const { error } = await supabaseClient.rpc('casino_annuler', { p_code: code, p_date: date });
+  if (error) { toast('Erreur : ' + error.message, '#B00020'); return; }
+  toast('Commande annulée');
+  chargerMesCommandes();
+}
+
+demarrer();
+</script>
+</body>
+</html>
