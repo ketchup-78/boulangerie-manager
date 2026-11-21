@@ -76,7 +76,7 @@ async function enregistrerAbonnementPush(employe) {
 }
 
 function proposerNotifications(employe) {
-  if (!employe || employe.role === 'chef' || employe.service === 'vente') return;
+  if (!employe || employe.service === 'vente') return;
   if (!('serviceWorker' in navigator) || !('PushManager' in window) || !('Notification' in window)) return;
   if (Notification.permission === 'denied') return;
 
@@ -130,8 +130,6 @@ async function initProfil(callback, filtreService) {
     return;
   }
 
-  // Sur la page d'Adel, on propose toujours tous les profils (pour pouvoir en changer librement)
-  if (location.pathname.endsWith('adel.html')) filtreService = undefined;
   const { data: tousLesEmployes, error } = await supabaseClient.from('employes').select('*').order('nom');
 
   const data = (filtreService && tousLesEmployes)

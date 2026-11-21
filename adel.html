@@ -31,6 +31,8 @@
   #ok{text-align:center;color:#2E7D32;font-weight:600;height:24px;margin-top:12px;}
 </style>
 <link rel="stylesheet" href="responsive.css?v=1">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="icon" type="image/png" href="icone-192.png">
 </head>
 <body>
 <header><h1>🥖 Production</h1><div style="text-align:right;"><span id="bandeau-profil"></span><br><a href="#" onclick="effacerProfil();return false;" style="color:#fff;opacity:.8;font-size:13px;">🔄 Changer de profil</a></div></header>
@@ -58,7 +60,7 @@
   </div>
 </main>
 <script src="supabase-config.js?v=6"></script>
-<script src="profil.js?v=11"></script>
+<script src="profil.js?v=13"></script>
 <script>
 const PRODUITS = ['Tradition', 'Graines', 'Héritage'];
 const PAS_CUITE = 'Tradition pas cuite après-midi';
@@ -173,7 +175,7 @@ initProfil(async (profil) => {
   supabaseClient.channel('commandes-adel')
     .on('postgres_changes', { event: '*', schema: 'public', table: 'commandes' }, chargerCommandes)
     .subscribe();
-});
+}, 'boulangerie');
 </script>
 </body>
 </html>
