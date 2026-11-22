@@ -112,6 +112,16 @@ function afficherBandeauProfil(employe) {
 // Le filtreService limite la liste affichée aux personnes de ce service,
 // chef compris (un chef n'apparaît que sur la tablette de son propre service).
 async function initProfil(callback, filtreService) {
+  // Si la page ne précise pas de service, on reprend celui de la page précédente
+  // (ex. reception, production... ouvertes depuis le labo boulangerie).
+  try {
+    if (!filtreService) {
+      const a = new URLSearchParams(location.search).get('atelier');
+      filtreService = (a === 'boulangerie' || a === 'patisserie') ? a : (sessionStorage.getItem('service_tablette') || undefined);
+    } else {
+      sessionStorage.setItem('service_tablette', filtreService);
+    }
+  } catch (e) {}
   // Profil simplifié : Adel arrive directement sur sa page (adel.html)
   const callbackPage = callback;
   callback = (p) => {
