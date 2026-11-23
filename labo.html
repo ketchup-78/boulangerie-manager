@@ -76,7 +76,7 @@
       <span style="font-size:24px;">📖</span>
       <span>Recettes</span>
     </a>
-    <a href="reception.html" class="raccourci">
+    <a href="reception.html" id="lien-lot" class="raccourci">
       <span style="font-size:24px;">📁</span>
       <span>Numéro de lot</span>
     </a>
@@ -629,6 +629,12 @@ function afficherRappelTemperature(manquants) {
 
 initProfil((profil) => {
   window.profilActuel = profil;
+  // Profils qui ne voient pas certains raccourcis
+  const MASQUES = { 'lola apprentie': ['lien-casino', 'lien-boutique-casino', 'lien-production', 'lien-lot'] };
+  (MASQUES[(profil.nom || '').trim().toLowerCase()] || []).forEach(id => {
+    const el = document.getElementById(id);
+    if (el) { el.style.setProperty('display', 'none', 'important'); }
+  });
   document.getElementById('date-commandes').value = dateLocale();
   verifierMessageDuJour();
   verifierRappelTemperature();
