@@ -66,15 +66,19 @@ const TITRES_PAGE = {
   vente: '🐭 Clients réguliers',
   patisserie: '👤 Clients réguliers'
 };
+// Casino Shop et L'Escale ont chacun leur page : leurs factures ne sont jamais mélangées
+const pageEscale = paramsPage.get('client') === 'escale';
 if (atelierFiltre && TITRES_PAGE[atelierFiltre]) {
   document.getElementById('titre-page').textContent = TITRES_PAGE[atelierFiltre];
 }
+if (pageEscale) document.getElementById('titre-page').textContent = "📒 L'Escale";
 
 async function chargerClientsReguliers() {
   const conteneur = document.getElementById('liste-clients-reguliers');
   let requete = supabaseClient.from('clients_reguliers').select('*').order('nom');
   if (atelierFiltre) requete = requete.eq('atelier', atelierFiltre);
-  const { data: clients, error } = await requete;
+  const { data: tous, error } = await requete;
+  const clients = (tous || []).filter(c => pageEscale ? c.nom === "L'Escale" : c.nom !== "L'Escale");
 
   if (error) { conteneur.innerHTML = `<p class="empty">Erreur : ${error.message}</p>`; return; }
   if (!clients || clients.length === 0) { conteneur.innerHTML = ''; return; }

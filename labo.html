@@ -92,9 +92,17 @@
       <span style="font-size:24px;">🛍️</span>
       <span>Boutique Casino</span>
     </a>
+    <a href="escale-admin.html" id="lien-boutique-escale" class="raccourci" style="display:none;">
+      <span style="font-size:24px;">🛍️</span>
+      <span>Boutique L'Escale</span>
+    </a>
     <a href="client-fidele.html?atelier=boulangerie" id="lien-casino" class="raccourci" style="display:none;">
       <span style="font-size:24px;">📒</span>
       <span>Casino Shop</span>
+    </a>
+    <a href="client-fidele.html?atelier=boulangerie&client=escale" id="lien-escale" class="raccourci" style="display:none;">
+      <span style="font-size:24px;">📒</span>
+      <span>L'Escale</span>
     </a>
     <a href="production.html" id="lien-production" class="raccourci" style="display:none;">
       <span style="font-size:24px;">🏭</span>
@@ -174,6 +182,8 @@ if (atelier === 'boulangerie') {
   document.getElementById('lien-production').style.display = 'flex';
   document.getElementById('lien-casino').style.display = 'flex';
   document.getElementById('lien-boutique-casino').style.display = 'flex';
+  document.getElementById('lien-boutique-escale').style.display = 'flex';
+  document.getElementById('lien-escale').style.display = 'flex';
 }
 
 if (atelier === 'patisserie') {
@@ -630,7 +640,7 @@ function afficherRappelTemperature(manquants) {
 initProfil((profil) => {
   window.profilActuel = profil;
   // Profils qui ne voient pas certains raccourcis
-  const MASQUES = { 'lola apprentie': ['lien-casino', 'lien-boutique-casino', 'lien-production', 'lien-lot'] };
+  const MASQUES = { 'lola apprentie': ['lien-casino', 'lien-boutique-casino', 'lien-boutique-escale', 'lien-escale', 'lien-production', 'lien-lot'] };
   (MASQUES[(profil.nom || '').trim().toLowerCase()] || []).forEach(id => {
     const el = document.getElementById(id);
     if (el) { el.style.setProperty('display', 'none', 'important'); }
