@@ -55,7 +55,7 @@
   <span style="width:52px;"></span>
 </header>
 
-<div id="verrou" style="display:none;"><p>Cette page est réservée au chef.</p></div>
+<div id="verrou" style="display:none;"><p>Cette page est réservée au chef et à Mathieu.</p></div>
 
 <main id="contenu" style="display:none;">
   <div class="card reserve-chef">
@@ -230,7 +230,7 @@ async function supprimer(i) {
 }
 
 initProfil((profil) => {
-  if (profil.role !== 'chef') { document.getElementById('verrou').style.display = 'block'; return; }
+  if (profil.role !== 'chef' && (profil.nom || '').trim().toLowerCase() !== 'mathieu') { document.getElementById('verrou').style.display = 'block'; return; }
   document.getElementById('contenu').style.display = 'block';
   document.getElementById('lien-client').value = new URL('escale.html', location.href).href;
   chargerProduits();

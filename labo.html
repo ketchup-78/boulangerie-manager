@@ -88,21 +88,13 @@
       <span style="font-size:24px;">🏷️</span>
       <span>Étiquettes HACCP</span>
     </a>
-    <a href="casino-admin.html" id="lien-boutique-casino" class="raccourci" style="display:none;">
+    <a href="boutique-client.html" id="lien-boutique-client" class="raccourci" style="display:none;">
       <span style="font-size:24px;">🛍️</span>
-      <span>Boutique Casino</span>
+      <span>Boutique client</span>
     </a>
-    <a href="escale-admin.html" id="lien-boutique-escale" class="raccourci" style="display:none;">
-      <span style="font-size:24px;">🛍️</span>
-      <span>Boutique L'Escale</span>
-    </a>
-    <a href="client-fidele.html?atelier=boulangerie" id="lien-casino" class="raccourci" style="display:none;">
+    <a href="facture-client.html" id="lien-facture-client" class="raccourci" style="display:none;">
       <span style="font-size:24px;">📒</span>
-      <span>Casino Shop</span>
-    </a>
-    <a href="client-fidele.html?atelier=boulangerie&client=escale" id="lien-escale" class="raccourci" style="display:none;">
-      <span style="font-size:24px;">📒</span>
-      <span>L'Escale</span>
+      <span>Facture client</span>
     </a>
     <a href="production.html" id="lien-production" class="raccourci" style="display:none;">
       <span style="font-size:24px;">🏭</span>
@@ -180,10 +172,8 @@ document.getElementById('lien-haccp').href = 'haccp.html?atelier=' + atelier;
 
 if (atelier === 'boulangerie') {
   document.getElementById('lien-production').style.display = 'flex';
-  document.getElementById('lien-casino').style.display = 'flex';
-  document.getElementById('lien-boutique-casino').style.display = 'flex';
-  document.getElementById('lien-boutique-escale').style.display = 'flex';
-  document.getElementById('lien-escale').style.display = 'flex';
+  document.getElementById('lien-boutique-client').style.display = 'flex';
+  document.getElementById('lien-facture-client').style.display = 'flex';
 }
 
 if (atelier === 'patisserie') {
@@ -640,7 +630,7 @@ function afficherRappelTemperature(manquants) {
 initProfil((profil) => {
   window.profilActuel = profil;
   // Profils qui ne voient pas certains raccourcis
-  const MASQUES = { 'lola apprentie': ['lien-casino', 'lien-boutique-casino', 'lien-boutique-escale', 'lien-escale', 'lien-production', 'lien-lot'] };
+  const MASQUES = { 'lola apprentie': ['lien-boutique-client', 'lien-facture-client', 'lien-production', 'lien-lot'] };
   (MASQUES[(profil.nom || '').trim().toLowerCase()] || []).forEach(id => {
     const el = document.getElementById(id);
     if (el) { el.style.setProperty('display', 'none', 'important'); }
