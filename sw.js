@@ -6,6 +6,11 @@ self.addEventListener('push', (event) => {
     body: d.texte || '',
     icon: 'icone-192.png',
     badge: 'icone-192.png',
+    vibrate: [400, 150, 400, 150, 800],   // vibration longue (Android)
+    requireInteraction: true,             // reste affichée jusqu'à ce qu'on la touche (Android / ordinateur)
+    tag: 'bm-' + Date.now(),              // chaque notification sonne, même s'il y en a déjà une
+    renotify: true,
+    silent: false,
     data: { url: d.url || './' }
   }));
 });
