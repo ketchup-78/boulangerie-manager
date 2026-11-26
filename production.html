@@ -404,9 +404,18 @@ async function afficherCuitReel() {
   const matin = lu['Tradition'] || 0, apm = lu['Tradition après-midi'] || 0;
   const pcM = lu['Tradition pas cuite'] || 0, pcA = lu['Tradition pas cuite après-midi'] || 0;
   const total = matin + apm - pcM - pcA;
+  const bacs = (n) => { const b = Math.round(n / 20 * 10) / 10; return '(' + String(b).replace('.', ',') + ' bac' + (b > 1 ? 's' : '') + ')'; };
+  const ligne = (titre, faites, cassees) => `
+    <div style="padding:10px 0;border-top:1px solid #f0ebe3;">
+      <b>${titre}</b> : ${faites} faites ${bacs(faites)}${cassees ? ', <span style="color:#B00020;font-weight:700;">' + cassees + ' cassées ' + bacs(cassees) + '</span>' : ''}, donc <b>${faites - cassees} cuites</b> ${bacs(faites - cassees)}
+      ${cassees ? '<div style="margin-top:4px;color:#B00020;font-weight:600;">➜ prévoir ' + cassees + ' de moins ' + bacs(cassees) + ' la semaine prochaine</div>' : ''}
+    </div>`;
   zone.innerHTML = `
-    <p style="font-size:42px;font-weight:700;margin:0;font-family:'Fraunces',serif;">${total} <small style="font-size:16px;font-weight:400;opacity:.6;">traditions cuites</small></p>
-    <p style="font-size:12px;opacity:.5;margin:6px 0 0;">${matin} matin + ${apm} aprem − ${pcM + pcA} pas cuites</p>`;
+    <p style="font-size:42px;font-weight:700;margin:0;font-family:'Fraunces',serif;">${total} <small style="font-size:16px;font-weight:400;opacity:.6;">traditions cuites <span style="font-size:15px;">${bacs(total)}</span></small></p>
+    <div style="margin-top:10px;">
+      ${ligne('Matin', matin, pcM)}
+      ${ligne('Après-midi', apm, pcA)}
+    </div>`;
 }
 
 initProfil((profil) => {
