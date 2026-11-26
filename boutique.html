@@ -216,7 +216,9 @@ async function chargerCommandes() {
     requete = requete.eq('recupere', false);
   }
 
-  const { data, error } = await requete;
+  const { data: brut, error } = await requete;
+  // Les commandes du site annulées par le client ne s'affichent plus en boutique
+  const data = (brut || []).filter(c => !(c.statut === 'annule' && (c.notes || '').startsWith('Commande en ligne')));
 
   const conteneur = document.getElementById('liste-commandes');
 
