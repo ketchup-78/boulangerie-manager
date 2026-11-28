@@ -62,6 +62,19 @@
 </header>
 
 <main>
+  <div class="card" id="card-message-adel" style="display:none;">
+    <h2>✉️ Message pour Adel</h2>
+    <div id="msg-auto" style="display:none;background:#FFF6DD;border-radius:12px;padding:12px;margin-bottom:14px;font-size:15px;"></div>
+    <label style="font-size:14px;opacity:.7;">Pour le jour</label>
+    <input type="date" id="msg-date" style="width:100%;padding:12px;border-radius:10px;border:1px solid #ddd;font-size:16px;margin:4px 0 14px;box-sizing:border-box;">
+    <div class="ligne-produit"><span>Tradition <small style="opacity:.6;">(bacs)</small></span><input type="number" inputmode="decimal" min="0" step="0.5" id="msg-tradition" placeholder="0"></div>
+    <div class="ligne-produit"><span>Graines <small style="opacity:.6;">(bacs)</small></span><input type="number" inputmode="decimal" min="0" step="0.5" id="msg-graines" placeholder="0"></div>
+    <div class="ligne-produit"><span>Héritage <small style="opacity:.6;">(bacs)</small></span><input type="number" inputmode="decimal" min="0" step="0.5" id="msg-heritage" placeholder="0"></div>
+    <label style="font-size:14px;opacity:.7;">Message (facultatif)</label>
+    <input type="text" id="msg-note" placeholder="Ex : pense à bien fariner" style="width:100%;padding:12px;border-radius:10px;border:1px solid #ddd;font-size:16px;margin:4px 0 14px;box-sizing:border-box;">
+    <button class="primary" onclick="envoyerMessageAdel()">Envoyer à Adel</button>
+    <div id="msg-ok" style="text-align:center;font-weight:600;margin-top:10px;min-height:22px;"></div>
+  </div>
   <div class="card" id="card-cuit-reel" style="display:none;">
     <h2>🔥 Tradition réellement cuite <small id="date-cuit-reel" style="font-weight:400;opacity:.6;font-size:14px;"></small></h2>
     <div id="contenu-cuit-reel"></div>
@@ -418,9 +431,53 @@ async function afficherCuitReel() {
     </div>`;
 }
 
+async function chargerMessageAuto() {
+  const zone = document.getElementById('msg-auto');
+  const { data } = await supabaseClient.from('messages_adel').select('*')
+    .eq('date_pour', dateLocale()).eq('envoye', false).order('created_at', { ascending: true });
+  if (!data || data.length === 0) { zone.style.display = 'none'; return; }
+  const bac = (n) => String(n).replace('.', ',') + ' bac' + (n > 1 ? 's' : '');
+  zone.innerHTML = '<b>Prévu pour 13h30 :</b>' + data.map(m => {
+    const l = [];
+    if (m.tradition) l.push('Tradition ' + bac(m.tradition));
+    if (m.graines) l.push('Graines ' + bac(m.graines));
+    if (m.heritage) l.push('Héritage ' + bac(m.heritage));
+    return '<div style="margin-top:8px;">' + l.join(' · ') + (m.note ? '<br><small style="opacity:.65;">' + echapper(m.note) + '</small>' : '') +
+      ' <button onclick="supprimerMessageAdel(\'' + m.id + '\')" style="margin-left:8px;border:none;background:#eee;border-radius:8px;padding:6px 10px;">Supprimer</button></div>';
+  }).join('');
+  zone.style.display = 'block';
+}
+
+async function supprimerMessageAdel(id) {
+  await supabaseClient.from('messages_adel').delete().eq('id', id);
+  chargerMessageAuto();
+}
+
+async function envoyerMessageAdel() {
+  const ok = document.getElementById('msg-ok');
+  const num = (id) => { const v = parseFloat(document.getElementById(id).value); return v > 0 ? v : null; };
+  const ligne = {
+    date_pour: document.getElementById('msg-date').value || dateLocale(),
+    tradition: num('msg-tradition'), graines: num('msg-graines'), heritage: num('msg-heritage'),
+    note: document.getElementById('msg-note').value.trim() || null,
+    cree_par: window.profilActuel ? window.profilActuel.nom : null
+  };
+  if (!ligne.tradition && !ligne.graines && !ligne.heritage && !ligne.note) { ok.style.color = '#B00020'; ok.textContent = 'Rien à envoyer.'; return; }
+  const { error } = await supabaseClient.from('messages_adel').insert([ligne]);
+  if (error) { ok.style.color = '#B00020'; ok.textContent = 'Erreur : ' + error.message; return; }
+  ok.style.color = '#2E7D32'; ok.textContent = '✅ Message enregistré : Adel est prévenu à 13h30 (tout de suite si c\'est après 13h30)';
+  ['msg-tradition', 'msg-graines', 'msg-heritage', 'msg-note'].forEach(id => { document.getElementById(id).value = ''; });
+  chargerMessageAuto();
+}
+
 initProfil((profil) => {
   window.profilActuel = profil;
-  if (profil.role === 'chef') afficherCuitReel();
+  if (profil.role === 'chef') {
+    afficherCuitReel();
+    document.getElementById('card-message-adel').style.display = 'block';
+    document.getElementById('msg-date').value = dateLocale();
+    chargerMessageAuto();
+  }
   document.getElementById('date-production').value = dateLocale();
   afficherFormulaireProduction();
   changerJourProduction();

@@ -38,6 +38,10 @@
 <body>
 <header><h1>🥖 Production</h1><div style="text-align:right;"><span id="bandeau-profil"></span><br><a href="#" onclick="effacerProfil();return false;" style="color:#fff;opacity:.8;font-size:13px;">🔄 Changer de profil</a></div></header>
 <main>
+  <div class="card" id="card-message" style="display:none;background:#FFF6DD;">
+    <h2>✉️ Message de Hugo <small id="date-message" style="font-weight:400;opacity:.6;font-size:14px;"></small></h2>
+    <div id="contenu-message"></div>
+  </div>
   <div class="card">
     <h2>📅 Il y a 7 jours <small id="date-7j" style="font-weight:400;opacity:.6;font-size:14px;"></small></h2>
     <div id="produit-7j"><p class="vide">Chargement...</p></div>
@@ -148,7 +152,26 @@ async function enregistrer() {
   ok.style.color = '#2E7D32'; ok.textContent = '✅ Enregistré';
 }
 
+async function chargerMessage() {
+  const date = jourChoisi();
+  const carte = document.getElementById('card-message');
+  const { data } = await supabaseClient.from('messages_adel').select('*')
+    .eq('date_pour', date).eq('envoye', true).order('created_at', { ascending: false });
+  if (!data || data.length === 0) { carte.style.display = 'none'; return; }
+  const bac = (n) => String(n).replace('.', ',') + ' bac' + (n > 1 ? 's' : '');
+  document.getElementById('contenu-message').innerHTML = data.map(m => {
+    const l = [];
+    if (m.tradition) l.push('<div><b>Tradition</b> : ' + bac(m.tradition) + '</div>');
+    if (m.graines) l.push('<div><b>Graines</b> : ' + bac(m.graines) + '</div>');
+    if (m.heritage) l.push('<div><b>Héritage</b> : ' + bac(m.heritage) + '</div>');
+    if (m.note) l.push('<div style="margin-top:6px;">' + echapper(m.note) + '</div>');
+    return '<div class="cmd">' + l.join('') + '</div>';
+  }).join('');
+  carte.style.display = 'block';
+}
+
 async function chargerJour() {
+  chargerMessage();
   const date = jourChoisi();
   PRODUITS.forEach(n => { document.getElementById('prod-' + n).value = ''; });
   document.getElementById('prod-pas-cuite').value = '';
